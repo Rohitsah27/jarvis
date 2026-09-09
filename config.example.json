@@ -1,0 +1,21 @@
+{
+  "USER_NAME": "User",
+  "USER_LOCATION": "New Delhi, India",
+  "DEFAULT_AI_PROVIDER": "Local LLM (Llama 3 / Ollama)",
+  "OPENSOURCE_LLM_URL": "http://localhost:11434",
+  "OPENSOURCE_LLM_MODEL": "llama3.2",
+  "GROQ_API_KEY": "",
+  "GEMINI_API_KEY": "",
+  "OPENAI_API_KEY": "",
+  "ANTHROPIC_API_KEY": "",
+  "TTS_ENGINE": "kokoro",
+  "KOKORO_ENGLISH_VOICE": "bm_george",
+  "KOKORO_HINDI_VOICE": "hm_omega",
+  "FORCE_HINDI_ONLY_SPEECH": true,
+  "KOKORO_SPEED": 1.35,
+  "XTTS_SPEAKER_WAV": "",
+  "XTTS_SPEAKER_NAME": "",
+  "ELEVENLABS_API_KEY": "",
+  "MIC_ENERGY_THRESHOLD": 75,
+  "MIC_DEVICE_INDEX": null
+}

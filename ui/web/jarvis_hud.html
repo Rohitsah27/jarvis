@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, shrink-to-fit=no" />
+  <title>JARVIS HUD System</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@500;600;700&display=swap"
+    rel="stylesheet" />
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+  <style>
+    :root {
+      --cyan-bright: #68f4ff;
+      --cyan-main: #00d9ff;
+      --cyan-dim: rgba(0, 217, 255, 0.22);
+      --bg-dark: #02070e;
+      --font-display: 'Orbitron', sans-serif;
+      --font-body: 'Rajdhani', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+
+    html,
+    body {
+      background: transparent;
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      -ms-touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    body {
+      color: #fff;
+      font-family: var(--font-body);
+    }
+
+    .screen-vignette {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, transparent 40%, rgba(7, 11, 18, 0.35) 90%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .hud-dial {
+      position: relative;
+      width: min(92vw, 92vh);
+      height: min(92vw, 92vh);
+      max-width: 92vw;
+      max-height: 92vh;
+      aspect-ratio: 1 / 1;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 2;
+      background: radial-gradient(circle at 50% 50%, rgba(9, 26, 41, 0.82) 0%, rgba(6, 17, 28, 0.55) 45%, rgba(7, 11, 18, 0.15) 75%, transparent 100%);
+      box-shadow:
+        inset 0 0 clamp(10px, 3.2cqmin, 36px) var(--cyan-dim),
+        0 0 clamp(16px, 4.5cqmin, 45px) rgba(0, 217, 255, 0.28);
+      border: clamp(1.5px, 0.35cqmin, 3px) solid rgba(0, 217, 255, 0.55);
+      transition: box-shadow 0.4s ease, border-color 0.4s ease;
+      container-type: size;
+    }
+
+    .rings-svg {
+      position: absolute;
+      inset: -6%;
+      width: 112%;
+      height: 112%;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .rotate-cw {
+      transform-origin: center;
+      animation: spinCW 38s linear infinite;
+    }
+
+    .rotate-ccw {
+      transform-origin: center;
+      animation: spinCCW 26s linear infinite;
+    }
+
+    @keyframes spinCW {
+      from {
+        transform: rotate(0deg);
+      }
+
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes spinCCW {
+      from {
+        transform: rotate(360deg);
+      }
+
+      to {
+        transform: rotate(0deg);
+      }
+    }
+
+    #canvas-container {
+      position: absolute;
+      width: 78%;
+      height: 78%;
+      border-radius: 50%;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 3;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    .hud-top-arc {
+      position: absolute;
+      top: clamp(8px, 4.8%, 24px);
+      top: 4.8cqmin;
+      font-family: var(--font-display);
+      font-size: clamp(0.48rem, 2.4vmin, 0.76rem);
+      font-size: 2.6cqmin;
+      letter-spacing: clamp(0.10rem, 0.7vmin, 0.28rem);
+      letter-spacing: 0.70cqmin;
+      color: #bbf8ff;
+      text-shadow: 0 0 10px var(--cyan-main);
+      border-top: clamp(1px, 0.28vmin, 2px) solid var(--cyan-bright);
+      border-top: 0.28cqmin solid var(--cyan-bright);
+      padding-top: clamp(2px, 0.5vmin, 5px);
+      padding-top: 0.5cqmin;
+      z-index: 4;
+      white-space: nowrap;
+    }
+
+    .hud-telemetry {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      gap: clamp(0.30rem, 2.2vmin, 1.1rem);
+      gap: 2.2cqmin;
+      font-family: var(--font-display);
+      font-size: clamp(0.45rem, 2.2vmin, 0.72rem);
+      font-size: 2.4cqmin;
+      letter-spacing: clamp(0.06rem, 0.32vmin, 0.14rem);
+      letter-spacing: 0.32cqmin;
+      font-weight: 700;
+      z-index: 4;
+      white-space: nowrap;
+    }
+
+    .telemetry-left {
+      left: clamp(4%, 6.5%, 8%);
+      left: 6.5cqmin;
+      text-align: left;
+    }
+
+    .telemetry-left span {
+      opacity: 0.58;
+      transition: opacity 0.3s, color 0.3s, text-shadow 0.3s;
+    }
+
+    .telemetry-left span.active {
+      opacity: 1;
+      color: #fff;
+      text-shadow: 0 0 12px var(--cyan-main);
+    }
+
+    .telemetry-right {
+      right: clamp(4%, 6.5%, 8%);
+      right: 6.5cqmin;
+      text-align: left;
+    }
+
+    .hud-item {
+      display: flex;
+      align-items: center;
+      gap: clamp(3px, 1.2vmin, 8px);
+      gap: 1.2cqmin;
+      opacity: 0.58;
+      transition: opacity 0.3s, color 0.3s, text-shadow 0.3s;
+    }
+
+    .hud-item.active {
+      opacity: 1;
+      color: #ffffff;
+      text-shadow: 0 0 10px var(--cyan-main);
+    }
+
+    .status-dot {
+      width: clamp(4px, 1.5vmin, 7px);
+      width: 1.5cqmin;
+      height: clamp(4px, 1.5vmin, 7px);
+      height: 1.5cqmin;
+      border-radius: 50%;
+      background: var(--cyan-main);
+      box-shadow: 0 0 0.8cqmin var(--cyan-main);
+      flex-shrink: 0;
+    }
+
+    .status-dot.active-green {
+      background: #4efbb4;
+      box-shadow: 0 0 1cqmin #4efbb4;
+    }
+
+    .hud-footer {
+      position: absolute;
+      bottom: clamp(8px, 5.2%, 36px);
+      bottom: 5.2cqmin;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    .hud-title {
+      font-family: var(--font-display);
+      font-size: clamp(1.0rem, 7.2vmin, 2.1rem);
+      font-size: 7.2cqmin;
+      font-weight: 900;
+      letter-spacing: clamp(0.20rem, 1.5vmin, 0.60rem);
+      letter-spacing: 1.5cqmin;
+      color: #ffffff;
+      text-shadow: 0 0 8px #ffffff, 0 0 25px var(--cyan-main), 0 0 45px var(--cyan-main);
+      line-height: 1;
+    }
+
+    .hud-subtitle {
+      font-family: var(--font-display);
+      font-size: clamp(0.38rem, 2.3vmin, 0.68rem);
+      font-size: 2.3cqmin;
+      letter-spacing: clamp(0.10rem, 0.65vmin, 0.32rem);
+      letter-spacing: 0.65cqmin;
+      color: var(--cyan-bright);
+      margin-top: clamp(2px, 0.8vmin, 5px);
+      margin-top: 0.8cqmin;
+      opacity: 0.95;
+      text-shadow: 0 0 6px var(--cyan-main);
+      white-space: nowrap;
+    }
+
+    #loader-tag {
+      position: absolute;
+      bottom: 22cqmin;
+      font-family: var(--font-display);
+      font-size: clamp(0.40rem, 2.2vmin, 0.62rem);
+      font-size: 2.2cqmin;
+      letter-spacing: 0.5cqmin;
+      color: var(--cyan-bright);
+      z-index: 6;
+      transition: opacity 0.5s;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="screen-vignette"></div>
+
+  <div class="hud-dial" id="hud-dial">
+    <svg class="rings-svg" viewBox="0 0 500 500">
+      <circle cx="250" cy="250" r="236" fill="none" stroke="rgba(0,217,255,0.18)" stroke-width="1.5" />
+      <circle class="rotate-cw" cx="250" cy="250" r="222" fill="none" stroke="rgba(0,217,255,0.45)" stroke-width="2"
+        stroke-dasharray="14 8 2 8 40 12" />
+      <circle class="rotate-ccw" cx="250" cy="250" r="202" fill="none" stroke="#00e5ff" stroke-width="2.5"
+        stroke-dasharray="80 140" stroke-linecap="round" />
+      <circle cx="250" cy="250" r="168" fill="none" stroke="rgba(104,244,255,0.22)" stroke-width="1"
+        stroke-dasharray="3 5" />
+    </svg>
+
+    <div class="hud-top-arc">INTELLIGENCE VERIFIED</div>
+
+    <div class="hud-telemetry telemetry-left">
+      <span id="tel-listening">LISTENING</span>
+      <span id="tel-thinking">THINKING</span>
+      <span id="tel-analyzing">ANALYZING</span>
+      <span id="tel-executing">EXECUTING</span>
+    </div>
+
+    <div id="canvas-container"></div>
+    <div id="loader-tag">INITIALIZING NEURAL INTERFACE...</div>
+
+    <div class="hud-telemetry telemetry-right">
+      <div class="hud-item" id="tel-intelligence">
+        <div class="status-dot"></div>
+        <span>INTELLIGENCE</span>
+      </div>
+      <div class="hud-item" id="tel-assistance">
+        <div class="status-dot"></div>
+        <span>ASSISTANCE</span>
+      </div>
+      <div class="hud-item" id="tel-automation">
+        <div class="status-dot"></div>
+        <span>AUTOMATION</span>
+      </div>
+      <div class="hud-item active" id="tel-alwayson">
+        <div class="status-dot active-green"></div>
+        <span style="color: #4efbb4;">ALWAYS ON</span>
+      </div>
+    </div>
+
+    <div class="hud-footer">
+      <h1 class="hud-title">JARVIS</h1>
+      <p class="hud-subtitle">HOW CAN I ASSIST YOU?</p>
+    </div>
+  </div>
+
+  <script>
+    // ---- Zoom Prevention: Permanently disable all zoom gestures, pinch-to-zoom,
+    // mouse wheel zooming, and keyboard shortcuts so the 3D particle dots remain
+    // 100% sharp and never become blurry.
+    window.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }, { passive: false });
+
+    window.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && (
+        e.key === '+' || e.key === '-' || e.key === '=' || e.key === '0' ||
+        e.keyCode === 187 || e.keyCode === 189 || e.keyCode === 48 || e.keyCode === 96 ||
+        e.keyCode === 107 || e.keyCode === 109
+      )) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    });
+
+    window.addEventListener('touchstart', function (e) {
+      if (e.touches && e.touches.length > 1) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchmove', function (e) {
+      if (e.touches && e.touches.length > 1) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    window.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+    window.addEventListener('gesturechange', function (e) { e.preventDefault(); });
+    window.addEventListener('gestureend', function (e) { e.preventDefault(); });
+
+    // ---- Live state bridge: called from the Python side (see
+    // ui/components/ai_core_web.py) once per animation tick so this page
+    // reacts to the same voice states (IDLE/LISTENING/THINKING/SPEAKING/
+    // PROCESSING/OFFLINE) as the rest of the app's HUD. Kept as plain
+    // global functions invoked via QWebEngineView.page().runJavaScript()
+    // rather than a full QWebChannel, since only a couple of primitive
+    // values need to cross the boundary each frame.
+    window.__aiAmp = 0.0;
+
+    const STATE_COLORS = {
+      IDLE: '#00d9ff',
+      LISTENING: '#00ffeb',
+      THINKING: '#be5fff',
+      SPEAKING: '#00e6ff',
+      PROCESSING: '#00f5ff',
+      OFFLINE: '#5a6e82',
+    };
+
+    window.jarvisSetState = function (state) {
+      ['tel-listening', 'tel-thinking', 'tel-analyzing', 'tel-executing'].forEach((id) => {
+        document.getElementById(id).classList.remove('active');
+      });
+      if (state === 'LISTENING') document.getElementById('tel-listening').classList.add('active');
+      if (state === 'THINKING') document.getElementById('tel-thinking').classList.add('active');
+      if (state === 'PROCESSING') {
+        document.getElementById('tel-analyzing').classList.add('active');
+        document.getElementById('tel-executing').classList.add('active');
+      }
+
+      ['tel-intelligence', 'tel-assistance'].forEach((id) => {
+        document.getElementById(id).classList.remove('active');
+      });
+      if (state === 'SPEAKING') {
+        document.getElementById('tel-intelligence').classList.add('active');
+        document.getElementById('tel-assistance').classList.add('active');
+      }
+      document.getElementById('tel-alwayson').classList.toggle('active', state !== 'OFFLINE');
+
+      const color = STATE_COLORS[state] || STATE_COLORS.IDLE;
+      document.documentElement.style.setProperty('--cyan-main', color);
+      window.__aiState = state;
+
+      if (window.headMat && window.headMat.uniforms && window.headMat.uniforms.uColor && typeof THREE !== 'undefined') {
+        window.headMat.uniforms.uColor.value.set(color);
+        const col = new THREE.Color(color);
+        window.headMat.uniforms.uTopColor.value.copy(col).lerp(new THREE.Color(1.0, 1.0, 1.0), 0.70);
+        window.headMat.uniforms.uRimColor.value.copy(col).lerp(new THREE.Color(0.2, 0.9, 1.0), 0.50);
+      }
+    };
+
+    window.jarvisSetAmplitude = function (amp) {
+      window.__aiAmp = amp;
+      if (window.headMat && window.headMat.uniforms && window.headMat.uniforms.uAmp) {
+        window.headMat.uniforms.uAmp.value = amp;
+      }
+    };
+  </script>
+
+  <script>
+    // =========================================================================
+    // ⚙️ MANUAL TWEAKS: DOT COUNT (DENSITY), SIZE & COLORS
+    // Change any of these values to customize the hologram appearance!
+    // =========================================================================
+    window.HUD_CONFIG = {
+      // 1. DOT SIZES (Increase for larger dots, decrease for finer dots)
+      dotSize: 0.008,           // Head particle size (e.g. 0.035 for bigger dots, 0.018 for smaller dots)
+      eyeDotSize: 0.0016,        // Iris dot size
+      eyelidDotSize: 0.0016,     // Eyelid line dot size
+
+      // 2. DOT DENSITY (Increase to generate MORE dots, decrease for fewer dots)
+      densityCrown: 3200,       // Top of head / crown & forehead density
+      densityNeck: 3200,        // Neck & under-chin density (restores full throat & under-chin coverage)
+      densityShoulders: 1800,   // Shoulders & upper chest density
+      densityFace: 2400,        // Facial surface density (restores full cheek, jawline, temples, chin coverage)
+
+      // 3. HOLOGRAM LIGHTING COLORS
+      baseColor: '#00d9ff',     // Default cyan hologram glow
+      topLightColor: '#d8faff', // Overhead crown / forehead highlight (cyan-white)
+      rimLightColor: '#38f0ff', // Outer silhouette rim glow
+
+      // 4. INTERIOR FILTER
+      removeInsideCylinder: true, // Filter out inside oral cavity and throat cylinder dots
+
+      // 5. EYE POSITIONS (Adjust to move eyes)
+      rightEyeX: 0.148,         // Right eye horizontal position (decreased to move left)
+      rightEyeY: 0.505,         // Right eye vertical position (decreased to move down/bottom)
+      leftEyeX: -0.175,         // Left eye horizontal position
+      leftEyeY: 0.52,           // Left eye vertical position
+
+      // 6. MOUTH POSITION & PARTICLES (Adjust to move mouth)
+      mouthX: -0.015,           // Mouth horizontal position (centered under nose)
+      mouthY: 0.195,            // Mouth vertical position (natural anatomical position)
+      mouthZ: 0.602,            // Mouth 3D depth (anchored cleanly on curved face surface, corners curve back to z=0.544)
+      mouthDotSize: 0.016,      // Mouth particle dot size (glowing holographic lips)
+      mouthMotionScale: 1.4,    // Multiplier for mouth speech animation
+    };
+
+    const container = document.getElementById('canvas-container');
+    const loaderTag = document.getElementById('loader-tag');
+    const scene = new THREE.Scene();
+
+    const camera = new THREE.PerspectiveCamera(40, (container.clientWidth || 300) / (container.clientHeight || 300), 0.1, 100);
+    camera.position.set(0, 0.36, 4.45);
+    camera.lookAt(0, 0.36, 0);
+
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    renderer.setSize(container.clientWidth || 300, container.clientHeight || 300);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    container.appendChild(renderer.domElement);
+
+    const faceRoot = new THREE.Group();
+    scene.add(faceRoot);
+
+    const createGlowTexture = () => {
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 64;
+      const ctx = c.getContext('2d');
+      const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 30);
+      g.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+      g.addColorStop(0.20, 'rgba(255, 255, 255, 0.95)');
+      g.addColorStop(0.55, 'rgba(255, 255, 255, 0.38)');
+      g.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(32, 32, 30, 0, Math.PI * 2);
+      ctx.fill();
+      return new THREE.CanvasTexture(c);
+    };
+
+    const dotTexture = createGlowTexture();
+
+    const headMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0.0 },
+        uAmp: { value: 0.0 },
+        uSize: { value: window.HUD_CONFIG.dotSize },
+        uOpacity: { value: 0.92 },
+        uColor: { value: new THREE.Color(window.HUD_CONFIG.baseColor) },
+        uTopColor: { value: new THREE.Color(window.HUD_CONFIG.topLightColor) },
+        uRimColor: { value: new THREE.Color(window.HUD_CONFIG.rimLightColor) },
+        uMap: { value: dotTexture }
+      },
+      vertexShader: `
+        uniform float uTime;
+        uniform float uSize;
+        uniform float uAmp;
+        uniform vec3 uColor;
+        uniform vec3 uTopColor;
+        uniform vec3 uRimColor;
+
+        varying vec3 vNormal;
+        varying vec3 vViewPosition;
+        varying float vLighting;
+        varying vec3 vColor;
+        varying float vFacing;
+
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          vViewPosition = -mvPosition.xyz;
+
+          vec3 viewDir = normalize(vViewPosition);
+          float NdotV = dot(viewDir, vNormal);
+
+          // Softly fade points facing away from the camera so the back of the head
+          // and internal surfaces don't bleed through the front facial hologram
+          float facing = smoothstep(-0.20, 0.20, NdotV);
+          vFacing = facing;
+
+          // 1. Overhead Key / Crown Light (Top of head & upper forehead)
+          vec3 topLightDir = normalize((viewMatrix * vec4(0.0, 1.0, 0.45, 0.0)).xyz);
+          float topDiff = max(0.0, dot(vNormal, topLightDir));
+          float crownFactor = smoothstep(0.40, 0.95, position.y);
+          float topLight = (topDiff * 0.95 + crownFactor * 0.90);
+
+          // 2. Upward Neck & Throat Fill Light (Under-chin, throat & neck)
+          vec3 neckLightDir = normalize((viewMatrix * vec4(0.0, -0.75, 0.5, 0.0)).xyz);
+          float neckDiff = max(0.0, dot(vNormal, neckLightDir));
+          float neckFactor = smoothstep(0.18, -0.22, position.y) * smoothstep(-0.68, -0.28, position.y);
+          float neckLight = (neckDiff * 0.80 + neckFactor * 0.95);
+
+          // 3. Shoulder & Clavicle Arc-Reactor Radiance
+          vec3 shoulderLightDir = normalize((viewMatrix * vec4(0.0, -1.0, 0.35, 0.0)).xyz);
+          float shoulderDiff = max(0.0, dot(vNormal, shoulderLightDir));
+          float shoulderFactor = smoothstep(-0.42, -0.95, position.y);
+          float shoulderLight = (shoulderDiff * 0.70 + shoulderFactor * 0.95);
+
+          // 4. Fresnel Holographic Rim Light (Silhouette edges facing the viewer)
+          float fresnel = pow(1.0 - clamp(abs(NdotV), 0.0, 1.0), 2.0) * facing;
+
+          // 5. Front Dimensional Key/Fill Light
+          vec3 frontLightDir = normalize((viewMatrix * vec4(0.12, 0.35, 0.92, 0.0)).xyz);
+          float frontDiff = max(0.0, dot(vNormal, frontLightDir)) * 0.45;
+
+          // 6. Subtle Holographic Scanline Wave
+          float scanline = sin(position.y * 32.0 - uTime * 2.2) * 0.10;
+
+          // 7. Base Ambient Illumination
+          float ambient = 0.50;
+
+          // Composite lighting factor
+          float totalLight = ambient 
+                           + (topLight * 1.05) 
+                           + (neckLight * 0.95) 
+                           + (shoulderLight * 0.95) 
+                           + (fresnel * 1.25) 
+                           + frontDiff 
+                           + scanline;
+
+          // Audio dynamic boost
+          totalLight *= (1.0 + uAmp * 0.45);
+
+          vLighting = totalLight;
+
+          // Highlight color blending for lit areas
+          float highlight = clamp((topLight * 0.55 + fresnel * 0.65 + neckLight * 0.35 - 0.25), 0.0, 1.0);
+          vColor = mix(uColor, uTopColor, highlight);
+
+          // Distance attenuation and particle size scaling
+          float pSize = uSize * (330.0 / -mvPosition.z) * (0.85 + 0.40 * min(totalLight, 2.4) + uAmp * 0.2);
+          gl_PointSize = clamp(pSize, 1.0, 48.0);
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D uMap;
+        uniform float uOpacity;
+
+        varying vec3 vNormal;
+        varying vec3 vViewPosition;
+        varying float vLighting;
+        varying vec3 vColor;
+        varying float vFacing;
+
+        void main() {
+          vec4 texColor = texture2D(uMap, gl_PointCoord);
+          if (texColor.a < 0.02) discard;
+
+          vec3 finalRgb = vColor * texColor.rgb * vLighting;
+          float alpha = texColor.a * uOpacity * min(1.0, 0.70 + vLighting * 0.30) * (0.15 + 0.85 * vFacing);
+          if (alpha < 0.015) discard;
+          gl_FragColor = vec4(finalRgb, alpha);
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    window.headMat = headMat;
+
+    const eyelidMat = new THREE.PointsMaterial({
+      color: 0x5eeeff,
+      size: window.HUD_CONFIG ? window.HUD_CONFIG.eyelidDotSize : 0.02,
+      map: dotTexture,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      opacity: 0.95
+    });
+
+    const irisMat = new THREE.PointsMaterial({
+      color: 0x00f0ff,
+      size: window.HUD_CONFIG ? window.HUD_CONFIG.eyeDotSize : 0.024,
+      map: dotTexture,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      opacity: 0.95
+    });
+
+    const pupilMat = new THREE.PointsMaterial({
+      color: 0xffffff,
+      size: 0.034,
+      map: dotTexture,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      opacity: 0.3
+    });
+
+    const eyeGimbalList = [];
+
+    function buildOpenEye(x, y, z) {
+      const eyeAnchor = new THREE.Group();
+      eyeAnchor.position.set(x, y, z);
+
+      const R = 0.082;
+
+      const scleraCount = 180;
+      const scleraPos = new Float32Array(scleraCount * 3);
+      for (let i = 0; i < scleraCount; i++) {
+        const theta = (Math.random() - 0.5) * 2.2;
+        const phi = (Math.random() - 0.5) * 1.8;
+        scleraPos[i * 3] = R * Math.sin(theta) * Math.cos(phi);
+        scleraPos[i * 3 + 1] = R * Math.sin(phi);
+        scleraPos[i * 3 + 2] = R * Math.cos(theta) * Math.cos(phi);
+      }
+      const scleraGeom = new THREE.BufferGeometry();
+      scleraGeom.setAttribute('position', new THREE.BufferAttribute(scleraPos, 3));
+      eyeAnchor.add(new THREE.Points(scleraGeom, new THREE.PointsMaterial({
+        color: 0x0e587b,
+        size: 0.03,
+        map: dotTexture,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        opacity: 0.40
+      })));
+
+      const irisCount = 220;
+      const irisPos = new Float32Array(irisCount * 3);
+      for (let i = 0; i < irisCount; i++) {
+        const rad = 0.012 + Math.pow(Math.random(), 0.6) * 6;
+        const ang = Math.random() * Math.PI * 7;
+        irisPos[i * 3] = Math.cos(ang) * rad;
+        irisPos[i * 3 + 1] = Math.sin(ang) * rad;
+        irisPos[i * 3 + 2] = Math.sqrt(Math.max(0, R * R - rad * rad)) + 0.002;
+      }
+      const irisGeom = new THREE.BufferGeometry();
+      irisGeom.setAttribute('position', new THREE.BufferAttribute(irisPos, 3));
+      eyeAnchor.add(new THREE.Points(irisGeom, irisMat));
+
+      const ringCount = 100;
+      const ringPos = new Float32Array(ringCount * 3);
+      for (let i = 0; i < ringCount; i++) {
+        const ang = (i / ringCount) * Math.PI * 2;
+        const rad = 0.05 + (Math.random() - 0.5) * 0.003;
+        ringPos[i * 3] = Math.cos(ang) * rad;
+        ringPos[i * 3 + 1] = Math.sin(ang) * rad;
+        ringPos[i * 3 + 2] = Math.sqrt(Math.max(0, R * R - rad * rad));
+      }
+      const ringGeom = new THREE.BufferGeometry();
+      ringGeom.setAttribute('position', new THREE.BufferAttribute(ringPos, 3));
+      eyeAnchor.add(new THREE.Points(ringGeom, eyelidMat));
+
+      const pupilCount = 40;
+      const pupilPos = new Float32Array(pupilCount * 3);
+      for (let i = 0; i < pupilCount; i++) {
+        const rad = Math.random() * 0.012;
+        const ang = Math.random() * Math.PI * 2;
+        pupilPos[i * 3] = Math.cos(ang) * rad;
+        pupilPos[i * 3 + 1] = Math.sin(ang) * rad;
+        pupilPos[i * 3 + 2] = R + 0.005;
+      }
+      const pupilGeom = new THREE.BufferGeometry();
+      pupilGeom.setAttribute('position', new THREE.BufferAttribute(pupilPos, 3));
+      eyeAnchor.add(new THREE.Points(pupilGeom, pupilMat));
+
+      eyeGimbalList.push(eyeAnchor);
+      return eyeAnchor;
+    }
+
+    function createOpenEyelidArch(centerX, centerY, centerZ) {
+      const eyelidGroup = new THREE.Group();
+      eyelidGroup.position.set(centerX, centerY, centerZ);
+
+      const count = 70;
+      const pos = new Float32Array(count * 2 * 3);
+      const width = 0.082;
+      const upperH = 0.044;
+      const lowerH = 0.034;
+
+      let ptr = 0;
+      for (let i = 0; i < count; i++) {
+        const t = (i / (count - 1)) * 2 - 1;
+        const x = t * width;
+        const arch = 1 - t * t;
+
+        pos[ptr++] = x;
+        pos[ptr++] = arch * upperH + 0.004;
+        pos[ptr++] = Math.cos(t * 1.1) * 0.02;
+
+        pos[ptr++] = x;
+        pos[ptr++] = -arch * lowerH - 0.004;
+        pos[ptr++] = Math.cos(t * 1.1) * 0.016;
+      }
+
+      const geom = new THREE.BufferGeometry();
+      geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      eyelidGroup.add(new THREE.Points(geom, eyelidMat));
+      return eyelidGroup;
+    }
+
+    // Procedural animated mouth: two lip point-arcs (upper/lower) whose Y
+    // positions are rewritten every frame based on speech amplitude, so it
+    // opens and closes while JARVIS talks. Replaces the static, always-
+    // closed lips masked out of the face scan above (a real point cloud
+    // has no blendshapes/bones to animate, so this fakes the same effect
+    // with a small hand-built mesh instead).
+    let mouthRig = null;
+
+    function buildAnimatedMouth(centerX, centerY, centerZ) {
+      const group = new THREE.Group();
+      group.position.set(centerX, centerY, centerZ);
+
+      const N_COLS = 42;
+      const halfWidth = 0.114;
+      // 5 volumetric rows for upper lip (42 cols * 5 rows * 3 coords = 630 floats)
+      const upperPos = new Float32Array(N_COLS * 5 * 3);
+      // 5 volumetric rows for lower lip
+      const lowerPos = new Float32Array(N_COLS * 5 * 3);
+
+      for (let i = 0; i < N_COLS; i++) {
+        const t = (i / (N_COLS - 1)) * 2.0 - 1.0;
+        const x = t * halfWidth;
+        const t2 = t * t;
+        const taper = Math.max(0.0, 1.0 - t2);
+        const cupid = Math.exp(-Math.pow((Math.abs(t) - 0.28) / 0.22, 2.0)) * taper;
+        const tubercle = Math.exp(-Math.pow(t / 0.18, 2.0)) * taper;
+        // 3D Skull curvature: curves mouth corners back to meet cheeks seamlessly at z = 0.545
+        const zBase = -0.058 * t2;
+
+        // Upper lip 5 rows (from outer vermilion crest down to inner stomion):
+        // Row 0: Outer vermilion border (Cupid's bow crest)
+        const u0 = (i * 5 + 0) * 3;
+        upperPos[u0] = x;
+        upperPos[u0 + 1] = 0.007 * taper + 0.011 * cupid;
+        upperPos[u0 + 2] = zBase + 0.008 * taper;
+
+        // Row 1: Anterior upper pout crest (fullest forward projection)
+        const u1 = (i * 5 + 1) * 3;
+        upperPos[u1] = x * 0.98;
+        upperPos[u1 + 1] = 0.004 * taper + 0.007 * cupid;
+        upperPos[u1 + 2] = zBase + 0.016 * taper + 0.003 * tubercle;
+
+        // Row 2: Mid-vermilion body cushion
+        const u2Idx = (i * 5 + 2) * 3;
+        upperPos[u2Idx] = x * 0.96;
+        upperPos[u2Idx + 1] = 0.0015 * taper + 0.003 * cupid;
+        upperPos[u2Idx + 2] = zBase + 0.012 * taper + 0.002 * tubercle;
+
+        // Row 3: Labial tubercle & inner slope
+        const u3 = (i * 5 + 3) * 3;
+        upperPos[u3] = x * 0.94;
+        upperPos[u3 + 1] = -0.0010 * taper - 0.0025 * tubercle;
+        upperPos[u3 + 2] = zBase + 0.007 * taper;
+
+        // Row 4: Inner stomion contact edge
+        const u4 = (i * 5 + 4) * 3;
+        upperPos[u4] = x * 0.92;
+        upperPos[u4 + 1] = -0.0020 * taper;
+        upperPos[u4 + 2] = zBase + 0.002 * taper;
+
+        // Lower lip 5 rows (from inner stomion down to mental crease border):
+        // Row 0: Inner stomion contact edge
+        const l0 = (i * 5 + 0) * 3;
+        lowerPos[l0] = x * 0.92;
+        lowerPos[l0 + 1] = -0.0030 * taper;
+        lowerPos[l0 + 2] = zBase + 0.002 * taper;
+
+        // Row 1: Inner vermilion slope
+        const l1 = (i * 5 + 1) * 3;
+        lowerPos[l1] = x * 0.94;
+        lowerPos[l1 + 1] = -0.0065 * taper;
+        lowerPos[l1 + 2] = zBase + 0.009 * taper;
+
+        // Row 2: Anterior lower cushion peak (maximum 3D pout)
+        const l2 = (i * 5 + 2) * 3;
+        lowerPos[l2] = x * 0.97;
+        lowerPos[l2 + 1] = -0.0120 * taper * (1.0 - 0.10 * t2);
+        lowerPos[l2 + 2] = zBase + 0.018 * taper;
+
+        // Row 3: Inferior vermilion roll
+        const l3 = (i * 5 + 3) * 3;
+        lowerPos[l3] = x * 0.98;
+        lowerPos[l3 + 1] = -0.0170 * taper * (1.0 - 0.12 * t2);
+        lowerPos[l3 + 2] = zBase + 0.011 * taper;
+
+        // Row 4: Inferior vermilion border (mental crease transition)
+        const l4 = (i * 5 + 4) * 3;
+        lowerPos[l4] = x;
+        lowerPos[l4 + 1] = -0.0220 * taper * (1.0 - 0.15 * t2);
+        lowerPos[l4 + 2] = zBase + 0.003 * taper;
+      }
+
+      const upperGeom = new THREE.BufferGeometry();
+      upperGeom.setAttribute('position', new THREE.BufferAttribute(upperPos, 3));
+      const lowerGeom = new THREE.BufferGeometry();
+      lowerGeom.setAttribute('position', new THREE.BufferAttribute(lowerPos, 3));
+
+      // Luminous electric cyan holographic lip material (high-contrast glow matching reference HUD)
+      const mouthMat = new THREE.PointsMaterial({
+        color: 0x38f0ff,
+        size: (window.HUD_CONFIG && window.HUD_CONFIG.mouthDotSize) || 0.016,
+        map: dotTexture,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        opacity: 0.98
+      });
+      group.add(new THREE.Points(upperGeom, mouthMat));
+      group.add(new THREE.Points(lowerGeom, mouthMat));
+
+      // Corner commissure blend dots: seamlessly bridges lip corners into cheek particle field
+      const cornerGeom = new THREE.BufferGeometry();
+      const cornerPos = new Float32Array([
+        // Left commissure blend dots (x < 0)
+        -halfWidth - 0.006, 0.003, -0.059,
+        -halfWidth - 0.012, 0.000, -0.061,
+        -halfWidth - 0.008, -0.005, -0.059,
+        // Right commissure blend dots (x > 0)
+        halfWidth + 0.006, 0.003, -0.059,
+        halfWidth + 0.012, 0.000, -0.061,
+        halfWidth + 0.008, -0.005, -0.059
+      ]);
+      cornerGeom.setAttribute('position', new THREE.BufferAttribute(cornerPos, 3));
+      group.add(new THREE.Points(cornerGeom, mouthMat));
+
+      mouthRig = { upperGeom, lowerGeom, upperPos, lowerPos, N_COLS, halfWidth };
+      return group;
+    }
+
+    function updateMouth(openAmount) {
+      if (!mouthRig) return;
+      const { upperPos, lowerPos, N_COLS, halfWidth, upperGeom, lowerGeom } = mouthRig;
+      const cfg = window.HUD_CONFIG || {};
+      const scale = cfg.mouthMotionScale !== undefined ? cfg.mouthMotionScale : 1.4;
+      const eff = Math.min(1.2, openAmount * scale);
+
+      for (let i = 0; i < N_COLS; i++) {
+        const t = (i / (N_COLS - 1)) * 2.0 - 1.0;
+        const t2 = t * t;
+        const taper = Math.max(0.0, 1.0 - t2);
+        const cupid = Math.exp(-Math.pow((Math.abs(t) - 0.28) / 0.22, 2.0)) * taper;
+        const tubercle = Math.exp(-Math.pow(t / 0.18, 2.0)) * taper;
+        const zBase = -0.058 * t2;
+        const stretch = 1.0 - eff * 0.035 * taper;
+        const x = t * halfWidth * stretch;
+
+        // Upper lip: lifts upward in 3D during speech while preserving Cupid's bow
+        const uLift = eff * 0.016 * taper;
+        const uDepth = eff * 0.004 * taper;
+
+        const u0 = (i * 5 + 0) * 3;
+        upperPos[u0] = x;
+        upperPos[u0 + 1] = (0.007 * taper + 0.011 * cupid) + uLift * 0.85;
+        upperPos[u0 + 2] = (zBase + 0.008 * taper) + uDepth;
+
+        const u1 = (i * 5 + 1) * 3;
+        upperPos[u1] = x * 0.98;
+        upperPos[u1 + 1] = (0.004 * taper + 0.007 * cupid) + uLift * 0.92;
+        upperPos[u1 + 2] = (zBase + 0.016 * taper + 0.003 * tubercle) + uDepth;
+
+        const u2Idx = (i * 5 + 2) * 3;
+        upperPos[u2Idx] = x * 0.96;
+        upperPos[u2Idx + 1] = (0.0015 * taper + 0.003 * cupid) + uLift * 0.95;
+        upperPos[u2Idx + 2] = (zBase + 0.012 * taper + 0.002 * tubercle) + uDepth;
+
+        const u3 = (i * 5 + 3) * 3;
+        upperPos[u3] = x * 0.94;
+        upperPos[u3 + 1] = (-0.0010 * taper - 0.0025 * tubercle) + uLift;
+        upperPos[u3 + 2] = (zBase + 0.007 * taper) + uDepth;
+
+        const u4 = (i * 5 + 4) * 3;
+        upperPos[u4] = x * 0.92;
+        upperPos[u4 + 1] = (-0.0020 * taper) + uLift;
+        upperPos[u4 + 2] = (zBase + 0.002 * taper) + uDepth;
+
+        // Lower lip: drops downward and backward along temporomandibular jaw axis
+        const lDrop = eff * taper;
+        const lDepth = eff * 0.024 * taper;
+
+        const l0 = (i * 5 + 0) * 3;
+        lowerPos[l0] = x * 0.92;
+        lowerPos[l0 + 1] = (-0.0030 * taper) - lDrop * 0.058;
+        lowerPos[l0 + 2] = (zBase + 0.002 * taper) - lDepth;
+
+        const l1 = (i * 5 + 1) * 3;
+        lowerPos[l1] = x * 0.94;
+        lowerPos[l1 + 1] = (-0.0065 * taper) - lDrop * 0.063;
+        lowerPos[l1 + 2] = (zBase + 0.009 * taper) - lDepth;
+
+        const l2 = (i * 5 + 2) * 3;
+        lowerPos[l2] = x * 0.97;
+        lowerPos[l2 + 1] = (-0.0120 * taper * (1.0 - 0.10 * t2)) - lDrop * 0.068;
+        lowerPos[l2 + 2] = (zBase + 0.018 * taper) - lDepth * 0.90;
+
+        const l3 = (i * 5 + 3) * 3;
+        lowerPos[l3] = x * 0.98;
+        lowerPos[l3 + 1] = (-0.0170 * taper * (1.0 - 0.12 * t2)) - lDrop * 0.073;
+        lowerPos[l3 + 2] = (zBase + 0.011 * taper) - lDepth * 0.85;
+
+        const l4 = (i * 5 + 4) * 3;
+        lowerPos[l4] = x;
+        lowerPos[l4 + 1] = (-0.0220 * taper * (1.0 - 0.15 * t2)) - lDrop * 0.078;
+        lowerPos[l4 + 2] = (zBase + 0.003 * taper) - lDepth * 0.80;
+      }
+
+      upperGeom.attributes.position.needsUpdate = true;
+      lowerGeom.attributes.position.needsUpdate = true;
+    }
+
+    const gltfLoader = new THREE.GLTFLoader();
+    const LOCAL_MODEL_URL = './LeePerrySmith.glb';
+    const REMOTE_MODEL_URL = 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/LeePerrySmith/LeePerrySmith.glb';
+
+    function isPointFiltered(px, py, pz) {
+      const cfg = window.HUD_CONFIG || {};
+      const rEyeX = cfg.rightEyeX !== undefined ? cfg.rightEyeX : 0.158;
+      const rEyeY = cfg.rightEyeY !== undefined ? cfg.rightEyeY : 0.505;
+      const lEyeX = cfg.leftEyeX !== undefined ? cfg.leftEyeX : -0.175;
+      const lEyeY = cfg.leftEyeY !== undefined ? cfg.leftEyeY : 0.52;
+
+      // 1. Anatomical elliptical eye aperture (clears opening for procedural eyes without clipping eyebrows)
+      const dxL = (px - lEyeX) / 0.082;
+      const dyL = (py - lEyeY) / 0.038;
+      const inLeftEye = (dxL * dxL + dyL * dyL < 1.0) && (pz > 0.40);
+
+      const dxR = (px - rEyeX) / 0.082;
+      const dyR = (py - rEyeY) / 0.038;
+      const inRightEye = (dxR * dxR + dyR * dyR < 1.0) && (pz > 0.40);
+
+      // 2. Filter out the original 3D scan's mouth ("other mouth")
+      // Contoured anatomical ellipse clears the scan mouth slit without cutting gaps into the cheeks
+      const mMeshX = cfg.mouthX !== undefined ? cfg.mouthX : -0.015;
+      const dxM = (px - mMeshX) / 0.115;
+      const dyM = (py - 0.145) / 0.052;
+      const inScannedMouth = (dxM * dxM + dyM * dyM < 1.0) && (pz > 0.45);
+
+      // 3. Filter out the internal oral cavity and throat cylinder dots
+      // Strictly targets internal cavity behind the face (never cuts into outer cheeks, jaw, or throat skin)
+      const filterCylinder = cfg.removeInsideCylinder !== false;
+      const inInsideCylinder = filterCylinder && (
+        (Math.abs(px) < 0.13 && py > -0.08 && py < 0.22 && pz > 0.12 && pz < 0.43) ||
+        (Math.abs(px) < 0.11 && py > -0.075 && py < -0.050 && pz > 0.18 && pz < 0.40)
+      );
+
+      return inLeftEye || inRightEye || inScannedMouth || inInsideCylinder;
+    }
+
+    function createFacialContours() {
+      const group = new THREE.Group();
+      const cfg = window.HUD_CONFIG || {};
+      const mouthX = cfg.mouthX !== undefined ? cfg.mouthX : -0.016;
+      const mouthY = cfg.mouthY !== undefined ? cfg.mouthY : 0.155;
+      const dotSz = cfg.mouthDotSize || 0.016;
+
+      const outlineMat = new THREE.PointsMaterial({
+        color: 0x5eeeff,
+        size: dotSz,
+        map: dotTexture,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        opacity: 0.95
+      });
+
+      // 1. Eyebrow Arches (Left and Right - cleanly dotted, no solid lines)
+      [-1, 1].forEach((sign) => {
+        const count = 38;
+        const pos = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+          const t = i / (count - 1);
+          const x = sign * (0.068 + t * 0.170);
+          const arch = Math.sin(t * Math.PI) * 0.022;
+          const y = 0.588 + arch - t * 0.018;
+          const z = 0.565 - t * 0.138;
+          pos[i * 3] = x;
+          pos[i * 3 + 1] = y;
+          pos[i * 3 + 2] = z;
+        }
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        group.add(new THREE.Points(geom, outlineMat));
+      });
+
+      return group;
+    }
+
+    function initFaceGeometry(rawGeom) {
+      rawGeom.center();
+      if (!rawGeom.attributes.normal) {
+        rawGeom.computeVertexNormals();
+      }
+
+      const origPos = rawGeom.attributes.position;
+      const origNorm = rawGeom.attributes.normal;
+      const indexAttr = rawGeom.index;
+
+      const filteredPos = [];
+      const filteredNorm = [];
+
+      // 1. Base scan vertices
+      for (let i = 0; i < origPos.count; i++) {
+        // Exclude strictly internal oral cavity and throat cylinder vertices
+        if ((i >= 951 && i <= 1220) || (i >= 5646 && i <= 5914)) continue;
+
+        const px = origPos.getX(i) * 0.26;
+        const py = origPos.getY(i) * 0.26;
+        const pz = origPos.getZ(i) * 0.26;
+
+        if (!isPointFiltered(px, py, pz)) {
+          filteredPos.push(px, py, pz);
+          filteredNorm.push(origNorm.getX(i), origNorm.getY(i), origNorm.getZ(i));
+        }
+      }
+
+      // 2. Uniform surface point generation across triangles
+      // Specifically populating sparse areas: top of head (crown & upper forehead),
+      // neck (under-chin & throat), and facial surface (cheeks, jaw, temples, chin).
+      if (indexAttr) {
+        const indices = indexAttr.array;
+        const triangleCount = indices.length / 3;
+
+        for (let t = 0; t < triangleCount; t++) {
+          const ia = indices[t * 3];
+          const ib = indices[t * 3 + 1];
+          const ic = indices[t * 3 + 2];
+
+          // Exclude internal oral cavity and throat cylinder triangles
+          if ((ia >= 951 && ia <= 1220) || (ib >= 951 && ib <= 1220) || (ic >= 951 && ic <= 1220) ||
+            (ia >= 5646 && ia <= 5914) || (ib >= 5646 && ib <= 5914) || (ic >= 5646 && ic <= 5914)) {
+            continue;
+          }
+
+          const pAx = origPos.getX(ia) * 0.26, pAy = origPos.getY(ia) * 0.26, pAz = origPos.getZ(ia) * 0.26;
+          const pBx = origPos.getX(ib) * 0.26, pBy = origPos.getY(ib) * 0.26, pBz = origPos.getZ(ib) * 0.26;
+          const pCx = origPos.getX(ic) * 0.26, pCy = origPos.getY(ic) * 0.26, pCz = origPos.getZ(ic) * 0.26;
+
+          const midY = (pAy + pBy + pCy) / 3.0;
+
+          const v1x = pBx - pAx, v1y = pBy - pAy, v1z = pBz - pAz;
+          const v2x = pCx - pAx, v2y = pCy - pAy, v2z = pCz - pAz;
+          const cx = v1y * v2z - v1z * v2y;
+          const cy = v1z * v2x - v1x * v2z;
+          const cz = v1x * v2y - v1y * v2x;
+          const area = 0.5 * Math.sqrt(cx * cx + cy * cy + cz * cz);
+
+          let samples = 0;
+          const cfg = window.HUD_CONFIG || {};
+          if (midY > 0.52) {
+            // Top of head / crown & forehead
+            samples = Math.floor(area * (cfg.densityCrown || 3200)) + 1;
+          } else if (midY < -0.55) {
+            // Shoulders & upper chest
+            samples = Math.floor(area * (cfg.densityShoulders || 1800)) + 1;
+          } else if (midY < 0.10 && midY >= -0.55) {
+            // Neck, throat & jawline (generates rich under-chin & throat dots)
+            samples = Math.floor(area * (cfg.densityNeck || 3200)) + 1;
+          } else {
+            // Facial surface polygons (cheeks, jaw, temples, chin, brow)
+            // Adds healthy, uniform particle dots across all facial polygons (+1 per triangle)
+            samples = Math.floor(area * (cfg.densityFace || 2400)) + 1;
+          }
+
+          if (samples <= 0) continue;
+
+          const nAx = origNorm.getX(ia), nAy = origNorm.getY(ia), nAz = origNorm.getZ(ia);
+          const nBx = origNorm.getX(ib), nBy = origNorm.getY(ib), nBz = origNorm.getZ(ib);
+          const nCx = origNorm.getX(ic), nCy = origNorm.getY(ic), nCz = origNorm.getZ(ic);
+
+          for (let k = 0; k < samples; k++) {
+            let r1 = Math.random();
+            let r2 = Math.random();
+            if (r1 + r2 > 1.0) {
+              r1 = 1.0 - r1;
+              r2 = 1.0 - r2;
+            }
+            const r3 = 1.0 - r1 - r2;
+
+            const px = r1 * pAx + r2 * pBx + r3 * pCx;
+            const py = r1 * pAy + r2 * pBy + r3 * pCy;
+            const pz = r1 * pAz + r2 * pBz + r3 * pCz;
+
+            if (isPointFiltered(px, py, pz)) continue;
+
+            let nx = r1 * nAx + r2 * nBx + r3 * nCx;
+            let ny = r1 * nAy + r2 * nBy + r3 * nCz;
+            let nz = r1 * nAz + r2 * nBz + r3 * nCz;
+            const invLen = 1.0 / (Math.sqrt(nx * nx + ny * ny + nz * nz) || 1.0);
+
+            filteredPos.push(px, py, pz);
+            filteredNorm.push(nx * invLen, ny * invLen, nz * invLen);
+          }
+        }
+      }
+
+      const headCleanGeom = new THREE.BufferGeometry();
+      headCleanGeom.setAttribute('position', new THREE.Float32BufferAttribute(filteredPos, 3));
+      headCleanGeom.setAttribute('normal', new THREE.Float32BufferAttribute(filteredNorm, 3));
+
+      const faceCloud = new THREE.Points(headCleanGeom, headMat);
+      faceCloud.position.set(0, 0.05, 0);
+      faceRoot.add(faceCloud);
+
+      const cfgEye = window.HUD_CONFIG || {};
+      const rEyeX = cfgEye.rightEyeX !== undefined ? cfgEye.rightEyeX : 0.158;
+      const rEyeY = cfgEye.rightEyeY !== undefined ? cfgEye.rightEyeY : 0.505;
+      const lEyeX = cfgEye.leftEyeX !== undefined ? cfgEye.leftEyeX : -0.175;
+      const lEyeY = cfgEye.leftEyeY !== undefined ? cfgEye.leftEyeY : 0.52;
+
+      const leftEye = buildOpenEye(lEyeX, lEyeY, 0.44);
+      const rightEye = buildOpenEye(rEyeX, rEyeY, 0.44);
+      faceRoot.add(leftEye);
+      faceRoot.add(rightEye);
+
+      const leftLid = createOpenEyelidArch(lEyeX, lEyeY, 0.46);
+      const rightLid = createOpenEyelidArch(rEyeX, rEyeY, 0.46);
+      faceRoot.add(leftLid);
+      faceRoot.add(rightLid);
+
+      const mouthX = cfgEye.mouthX !== undefined ? cfgEye.mouthX : -0.015;
+      const mouthY = cfgEye.mouthY !== undefined ? cfgEye.mouthY : 0.195;
+      const mouthZ = cfgEye.mouthZ !== undefined ? cfgEye.mouthZ : 0.602;
+      const mouth = buildAnimatedMouth(mouthX, mouthY, mouthZ);
+      faceRoot.add(mouth);
+
+      loaderTag.style.opacity = '0';
+      setTimeout(() => loaderTag.remove(), 600);
+    }
+
+    const onModelSuccess = (gltf) => {
+      let rawGeom;
+      gltf.scene.traverse((child) => {
+        if (child.isMesh && !rawGeom) {
+          rawGeom = child.geometry;
+        }
+      });
+      if (rawGeom) {
+        initFaceGeometry(rawGeom);
+      }
+    };
+
+    gltfLoader.load(
+      LOCAL_MODEL_URL,
+      onModelSuccess,
+      undefined,
+      (errLocal) => {
+        console.log('Local GLB fallback to CDN:', errLocal);
+        gltfLoader.load(
+          REMOTE_MODEL_URL,
+          onModelSuccess,
+          undefined,
+          (errRemote) => {
+            console.warn('Fallback loading mode:', errRemote);
+            loaderTag.innerText = 'OFFLINE MODE ACTIVE';
+          }
+        );
+      }
+    );
+
+    let targetX = 0;
+    let targetY = 0;
+
+    window.addEventListener('mousemove', (e) => {
+      const nx = (e.clientX / window.innerWidth) * 2 - 1;
+      const ny = -(e.clientY / window.innerHeight) * 2 + 1;
+      targetX = nx * 0.35;
+      targetY = -ny * 0.18;
+    });
+
+    let currentMouthOpen = 0;
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const elapsed = clock.getElapsedTime();
+
+      faceRoot.rotation.y += (targetX - faceRoot.rotation.y) * 0.06;
+      faceRoot.rotation.x += (targetY - faceRoot.rotation.x) * 0.06;
+
+      eyeGimbalList.forEach((eye) => {
+        eye.rotation.y += (targetX * 0.35 - eye.rotation.y) * 0.12;
+        eye.rotation.x += (targetY * 0.35 - eye.rotation.x) * 0.12;
+      });
+
+      const amp = window.__aiAmp || 0;
+      faceRoot.position.y = Math.sin(elapsed * 1.5) * (0.03 + amp * 0.05);
+
+      if (window.headMat && window.headMat.uniforms) {
+        window.headMat.uniforms.uTime.value = elapsed;
+        window.headMat.uniforms.uAmp.value = amp;
+      }
+
+      // Dynamic mouth speech articulation:
+      // STRICT REQUIREMENT: JARVIS's mouth ONLY moves when JARVIS is speaking (window.__aiState === 'SPEAKING').
+      // When the user speaks (state is 'LISTENING'), or while processing ('PROCESSING'/'THINKING'), or 'IDLE',
+      // JARVIS's mouth remains completely closed.
+      const effAmp = Math.max(amp || 0, window.__aiAmp || 0);
+      const isSpeaking = (window.__aiState === 'SPEAKING');
+      let targetOpen = 0;
+      if (isSpeaking) {
+        // Multi-frequency phonetic cadence (simulates vocal tract oscillation)
+        const s1 = Math.sin(elapsed * 18.0);
+        const s2 = Math.sin(elapsed * 27.0 + 1.2);
+        const s3 = Math.sin(elapsed * 10.0 + 2.4);
+        const chatter = 0.50 + 0.32 * s1 + 0.18 * s2 + 0.12 * s3;
+
+        // Base speech power: scales with audio amplitude, with natural minimum opening while speaking
+        const speechPower = Math.max(effAmp * 2.2, 0.45 * effAmp + 0.30);
+        targetOpen = Math.min(1.0, speechPower * Math.max(0.18, chatter));
+      } else {
+        // Resting / user speaking / thinking / idle: mouth remains strictly closed
+        targetOpen = 0.0;
+      }
+      currentMouthOpen += (targetOpen - currentMouthOpen) * 0.35;
+      if (!isSpeaking && currentMouthOpen < 0.005) {
+        currentMouthOpen = 0.0;
+      }
+      updateMouth(currentMouthOpen);
+
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    function updateCameraFraming() {
+      if (!container || !camera || !renderer) return;
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (w <= 0 || h <= 0) return;
+
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h, false);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+      // Visual vertical center at y=0.36 places the face directly between eyes and mouth
+      // Camera distance 4.45 guarantees head dots never collide with telemetry or JARVIS footer
+      const camY = 0.36;
+      const camZ = 4.45;
+      camera.position.set(0, camY, camZ);
+      camera.lookAt(0, camY, 0);
+    }
+    window.updateCameraFraming = updateCameraFraming;
+    updateCameraFraming();
+
+    window.addEventListener('resize', updateCameraFraming);
+
+    if (window.ResizeObserver) {
+      const ro = new ResizeObserver(() => {
+        updateCameraFraming();
+      });
+      ro.observe(container);
+      const dialEl = document.getElementById('hud-dial');
+      if (dialEl) ro.observe(dialEl);
+      ro.observe(document.body);
+    }
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,12 @@
+PySide6>=6.6.0
+psutil>=5.9.0
+pywin32>=306
+SpeechRecognition>=3.14.0
+pyaudio>=0.2.14
+webrtcvad-wheels>=2.0.14   # Real voice-activity detection to filter ambient noise before STT (tiny, ~20KB)
+pycaw>=20240210            # Per-app/default audio device diagnostics + device-targeted TTS playback
+comtypes>=1.4.0            # COM bindings required by pycaw
+
+# Optional: XTTS-v2 high-quality voice mode (Settings > Active Voice Engine).
+# Heavy (~3GB incl. PyTorch) and CPU inference is slow; not required for core app.
+# coqui-tts>=0.27.0

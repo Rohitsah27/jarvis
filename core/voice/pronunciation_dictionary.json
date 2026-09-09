@@ -1,0 +1,2145 @@
+{
+  "_meta": {
+    "description": "Engine-independent TTS pronunciation dictionary for JARVIS. Rewrites English/Latin-script terms and loanwords embedded in Hindi speech to a Devanagari spelling that any TTS engine's phonemizer renders correctly, with natural Hindi cadence and zero voice switching mid-sentence.",
+    "applies_to": "Substituted when the surrounding utterance or segment is classified as Hindi ('hi'). Preprocessed before segmentation so multi-word loanwords remain unified under the Hindi voice.",
+    "schema": {
+      "term": "Canonical English/Latin-script spelling as it appears in LLM output, tool names, or speech",
+      "devanagari": "Devanagari spelling that phonemizes correctly through a Hindi TTS voice",
+      "category": "Category identifier for maintainability"
+    }
+  },
+  "categories": {
+    "user_profile": [
+      {
+        "term": "Rohit Kumar",
+        "devanagari": "रोहित कुमार",
+        "category": "user_profile"
+      },
+      {
+        "term": "Rohit",
+        "devanagari": "रोहित",
+        "category": "user_profile"
+      },
+      {
+        "term": "Kumar",
+        "devanagari": "कुमार",
+        "category": "user_profile"
+      },
+      {
+        "term": "Abhishek",
+        "devanagari": "अभिषेक",
+        "category": "user_profile"
+      },
+      {
+        "term": "Pramod",
+        "devanagari": "प्रमोद",
+        "category": "user_profile"
+      },
+      {
+        "term": "Sir",
+        "devanagari": "सर",
+        "category": "user_profile"
+      },
+      {
+        "term": "Sirji",
+        "devanagari": "सरजी",
+        "category": "user_profile"
+      },
+      {
+        "term": "Boss",
+        "devanagari": "बॉस",
+        "category": "user_profile"
+      },
+      {
+        "term": "Friend",
+        "devanagari": "फ्रेंड",
+        "category": "user_profile"
+      }
+    ],
+    "greetings_courtesies": [
+      {
+        "term": "Hello",
+        "devanagari": "हेलो",
+        "category": "greetings_courtesies"
+      },
+      {
+        "term": "Hey",
+        "devanagari": "हे",
+        "category": "greetings_courtesies"
+      },
+      {
+        "term": "Hi",
+        "devanagari": "हाय",
+        "category": "greetings_courtesies"
+      },
+      {
+        "term": "Namaste",
+        "devanagari": "नमस्ते",
+        "category": "greetings_courtesies"
+      },
+      {
+        "term": "Welcome",
+        "devanagari": "वेलकम",
+        "category": "greetings_courtesies"
+      },
+      {
+        "term": "Thank you",
+        "devanagari": "थैंक यू",
+        "category": "greetings_courtesies"
+      },
+      {
+        "term": "Thanks",
+        "devanagari": "थैंक्स",
+        "category": "greetings_courtesies"
+      },
+      {
+        "term": "Please",
+        "devanagari": "प्लीज़",
+        "category": "greetings_courtesies"
+      },
+      {
+        "term": "Sorry",
+        "devanagari": "सॉरी",
+        "category": "greetings_courtesies"
+      },
+      {
+        "term": "No problem",
+        "devanagari": "नो प्रॉब्लम",
+        "category": "greetings_courtesies"
+      },
+      {
+        "term": "Good morning",
+        "devanagari": "गुड मॉर्निंग",
+        "category": "greetings_courtesies"
+      },
+      {
+        "term": "Good afternoon",
+        "devanagari": "गुड आफ्टरनून",
+        "category": "greetings_courtesies"
+      },
+      {
+        "term": "Good evening",
+        "devanagari": "गुड इवनिंग",
+        "category": "greetings_courtesies"
+      },
+      {
+        "term": "Good night",
+        "devanagari": "गुड नाइट",
+        "category": "greetings_courtesies"
+      },
+      {
+        "term": "Bye",
+        "devanagari": "बाय",
+        "category": "greetings_courtesies"
+      },
+      {
+        "term": "Goodbye",
+        "devanagari": "गुडबाय",
+        "category": "greetings_courtesies"
+      }
+    ],
+    "actions_verbs": [
+      {
+        "term": "Opening",
+        "devanagari": "ओपनिंग",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Opened",
+        "devanagari": "ओपन्ड",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Open",
+        "devanagari": "ओपन",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Closing",
+        "devanagari": "क्लोज़िंग",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Closed",
+        "devanagari": "क्लोज़्ड",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Close",
+        "devanagari": "क्लोज़",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Started",
+        "devanagari": "स्टार्टेड",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Start",
+        "devanagari": "स्टार्ट",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Stopped",
+        "devanagari": "स्टॉप्ड",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Stop",
+        "devanagari": "स्टॉप",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Playing",
+        "devanagari": "प्लेइंग",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Play",
+        "devanagari": "प्ले",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Paused",
+        "devanagari": "पॉज़्ड",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Pause",
+        "devanagari": "पॉज़",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Resumed",
+        "devanagari": "रिज्यूम्ड",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Resume",
+        "devanagari": "रिज्यूम",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Searching",
+        "devanagari": "सर्चिंग",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Search",
+        "devanagari": "सर्च",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Checking",
+        "devanagari": "चेकिंग",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Check",
+        "devanagari": "चेक",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Testing",
+        "devanagari": "टेस्टिंग",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Test",
+        "devanagari": "टेस्ट",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Click",
+        "devanagari": "क्लिक",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Clicked",
+        "devanagari": "क्लिक किया",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Typing",
+        "devanagari": "टाइपिंग",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Type",
+        "devanagari": "टाइप",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Copy",
+        "devanagari": "कॉपी",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Paste",
+        "devanagari": "पेस्ट",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Saved",
+        "devanagari": "सेव्ड",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Save",
+        "devanagari": "सेव",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Deleted",
+        "devanagari": "डिलीटेड",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Delete",
+        "devanagari": "डिलीट",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Cancelled",
+        "devanagari": "कैंसिल्ड",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Cancel",
+        "devanagari": "कैंसिल",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Updated",
+        "devanagari": "अपडेटेड",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Update",
+        "devanagari": "अपडेट",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Downloaded",
+        "devanagari": "डाउनलोड किया",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Downloading",
+        "devanagari": "डाउनलोडिंग",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Download",
+        "devanagari": "डाउनलोड",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Upload",
+        "devanagari": "अपलोड",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Launch",
+        "devanagari": "लॉन्च",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Run",
+        "devanagari": "रन",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Lock",
+        "devanagari": "लॉक",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Unlock",
+        "devanagari": "अनलॉक",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Restart",
+        "devanagari": "रीस्टार्ट",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Shutdown",
+        "devanagari": "शटडाउन",
+        "category": "actions_verbs"
+      },
+      {
+        "term": "Sleep",
+        "devanagari": "स्लीप",
+        "category": "actions_verbs"
+      }
+    ],
+    "status_acknowledgments": [
+      {
+        "term": "Ready",
+        "devanagari": "रेडी",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Active",
+        "devanagari": "एक्टिव",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Online",
+        "devanagari": "ऑनलाइन",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Offline",
+        "devanagari": "ऑफलाइन",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Connected",
+        "devanagari": "कनेक्टेड",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Disconnected",
+        "devanagari": "डिस्कनेक्टेड",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Done",
+        "devanagari": "डन",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Clear",
+        "devanagari": "क्लियर",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Successfully",
+        "devanagari": "सक्सेसफुली",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Successful",
+        "devanagari": "सक्सेसफुल",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Success",
+        "devanagari": "सक्सेस",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Completed",
+        "devanagari": "कम्प्लीटेड",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Complete",
+        "devanagari": "कम्प्लीट",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Failed",
+        "devanagari": "फेल्ड",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Error",
+        "devanagari": "एरर",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Problem",
+        "devanagari": "प्रॉब्लम",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Okay",
+        "devanagari": "ओके",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "OK",
+        "devanagari": "ओके",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Yes",
+        "devanagari": "यस",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "No",
+        "devanagari": "नो",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Sure",
+        "devanagari": "श्योर",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Fine",
+        "devanagari": "फाइन",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Perfect",
+        "devanagari": "परफेक्ट",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Correct",
+        "devanagari": "करेक्ट",
+        "category": "status_acknowledgments"
+      },
+      {
+        "term": "Normal",
+        "devanagari": "नॉर्मल",
+        "category": "status_acknowledgments"
+      }
+    ],
+    "system_hardware": [
+      {
+        "term": "System",
+        "devanagari": "सिस्टम",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Computer",
+        "devanagari": "कंप्यूटर",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Laptop",
+        "devanagari": "लैपटॉप",
+        "category": "system_hardware"
+      },
+      {
+        "term": "PC",
+        "devanagari": "पी सी",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Screen",
+        "devanagari": "स्क्रीन",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Display",
+        "devanagari": "डिस्प्ले",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Brightness",
+        "devanagari": "ब्राइटनेस",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Volume",
+        "devanagari": "वॉल्यूम",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Mute",
+        "devanagari": "म्यूट",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Unmute",
+        "devanagari": "अनम्यूट",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Microphone",
+        "devanagari": "माइक्रोफ़ोन",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Mic",
+        "devanagari": "माइक",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Speakers",
+        "devanagari": "स्पीकर्स",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Speaker",
+        "devanagari": "स्पीकर",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Audio",
+        "devanagari": "ऑडियो",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Video",
+        "devanagari": "वीडियो",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Voice",
+        "devanagari": "वॉइस",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Sound",
+        "devanagari": "साउंड",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Battery",
+        "devanagari": "बैटरी",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Percentage",
+        "devanagari": "परसेंटेज",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Percent",
+        "devanagari": "परसेंट",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Charging",
+        "devanagari": "चार्जिंग",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Charger",
+        "devanagari": "चार्जर",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Files",
+        "devanagari": "फ़ाइल्स",
+        "category": "system_hardware"
+      },
+      {
+        "term": "File",
+        "devanagari": "फ़ाइल",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Folders",
+        "devanagari": "फ़ोल्डर्स",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Folder",
+        "devanagari": "फ़ोल्डर",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Windows",
+        "devanagari": "विंडोज़",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Window",
+        "devanagari": "विंडो",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Tabs",
+        "devanagari": "टैब्स",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Tab",
+        "devanagari": "टैब",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Pages",
+        "devanagari": "पेजेस",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Page",
+        "devanagari": "पेज",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Links",
+        "devanagari": "लिंक्स",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Link",
+        "devanagari": "लिंक",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Websites",
+        "devanagari": "वेबसाइट्स",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Website",
+        "devanagari": "वेबसाइट",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Internet",
+        "devanagari": "इंटरनेट",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Network",
+        "devanagari": "नेटवर्क",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Wi-Fi",
+        "devanagari": "वाईफाई",
+        "category": "system_hardware"
+      },
+      {
+        "term": "WiFi",
+        "devanagari": "वाईफाई",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Bluetooth",
+        "devanagari": "ब्लूटूथ",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Browser",
+        "devanagari": "ब्राउज़र",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Applications",
+        "devanagari": "एप्लीकेशन्स",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Application",
+        "devanagari": "एप्लीकेशन",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Apps",
+        "devanagari": "ऐप्स",
+        "category": "system_hardware"
+      },
+      {
+        "term": "App",
+        "devanagari": "ऐप",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Software",
+        "devanagari": "सॉफ्टवेयर",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Devices",
+        "devanagari": "डिवाइसेस",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Device",
+        "devanagari": "डिवाइस",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Memory",
+        "devanagari": "मेमोरी",
+        "category": "system_hardware"
+      },
+      {
+        "term": "RAM",
+        "devanagari": "रैम",
+        "category": "system_hardware"
+      },
+      {
+        "term": "CPU",
+        "devanagari": "सी पी यू",
+        "category": "system_hardware"
+      },
+      {
+        "term": "GPU",
+        "devanagari": "जी पी यू",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Disk",
+        "devanagari": "डिस्क",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Space",
+        "devanagari": "स्पेस",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Drive",
+        "devanagari": "ड्राइव",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Processes",
+        "devanagari": "प्रोसेसिस",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Process",
+        "devanagari": "प्रोसेस",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Code",
+        "devanagari": "कोड",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Mode",
+        "devanagari": "मोड",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Call",
+        "devanagari": "कॉल",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Music",
+        "devanagari": "म्यूज़िक",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Songs",
+        "devanagari": "सॉन्ग्स",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Song",
+        "devanagari": "सॉन्ग",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Camera",
+        "devanagari": "कैमरा",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Console",
+        "devanagari": "कंसोल",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Terminal",
+        "devanagari": "टर्मिनल",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Telemetry",
+        "devanagari": "टेलीमेट्री",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Notifications",
+        "devanagari": "नोटिफिकेशन्स",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Notification",
+        "devanagari": "नोटिफिकेशन",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Time",
+        "devanagari": "टाइम",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Date",
+        "devanagari": "डेट",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Messages",
+        "devanagari": "मैसेजेस",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Message",
+        "devanagari": "मैसेज",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Commands",
+        "devanagari": "कमांड्स",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Command",
+        "devanagari": "कमांड",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Settings",
+        "devanagari": "सेटिंग्स",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Desktop",
+        "devanagari": "डेस्कटॉप",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Documents",
+        "devanagari": "डॉक्यूमेंट्स",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Downloads",
+        "devanagari": "डाउनलोड्स",
+        "category": "system_hardware"
+      },
+      {
+        "term": "Pictures",
+        "devanagari": "पिक्चर्स",
+        "category": "system_hardware"
+      },
+      {
+        "term": "AM",
+        "devanagari": "ए एम",
+        "category": "system_hardware"
+      },
+      {
+        "term": "PM",
+        "devanagari": "पी एम",
+        "category": "system_hardware"
+      },
+      {
+        "term": "MB",
+        "devanagari": "एम बी",
+        "category": "system_hardware"
+      },
+      {
+        "term": "GB",
+        "devanagari": "जी बी",
+        "category": "system_hardware"
+      },
+      {
+        "term": "KB",
+        "devanagari": "के बी",
+        "category": "system_hardware"
+      },
+      {
+        "term": "TB",
+        "devanagari": "टी बी",
+        "category": "system_hardware"
+      },
+      {
+        "term": "seconds",
+        "devanagari": "सेकंड्स",
+        "category": "system_hardware"
+      },
+      {
+        "term": "sec",
+        "devanagari": "सेकंड्स",
+        "category": "system_hardware"
+      },
+      {
+        "term": "minutes",
+        "devanagari": "मिनट्स",
+        "category": "system_hardware"
+      },
+      {
+        "term": "min",
+        "devanagari": "मिनट",
+        "category": "system_hardware"
+      },
+      {
+        "term": "hours",
+        "devanagari": "घंटे",
+        "category": "system_hardware"
+      }
+    ],
+    "applications": [
+      {
+        "term": "Notepad",
+        "devanagari": "नोटपैड",
+        "category": "applications"
+      },
+      {
+        "term": "Calculator",
+        "devanagari": "कैलकुलेटर",
+        "category": "applications"
+      },
+      {
+        "term": "Chrome",
+        "devanagari": "क्रोम",
+        "category": "applications"
+      },
+      {
+        "term": "Google",
+        "devanagari": "गूगल",
+        "category": "applications"
+      },
+      {
+        "term": "YouTube",
+        "devanagari": "यूट्यूब",
+        "category": "applications"
+      },
+      {
+        "term": "WhatsApp",
+        "devanagari": "व्हाट्सएप",
+        "category": "applications"
+      },
+      {
+        "term": "Spotify",
+        "devanagari": "स्पॉटिफाई",
+        "category": "applications"
+      },
+      {
+        "term": "Explorer",
+        "devanagari": "एक्सप्लोरर",
+        "category": "applications"
+      },
+      {
+        "term": "Word",
+        "devanagari": "वर्ड",
+        "category": "applications"
+      },
+      {
+        "term": "Excel",
+        "devanagari": "एक्सेल",
+        "category": "applications"
+      },
+      {
+        "term": "PowerPoint",
+        "devanagari": "पावरपॉइंट",
+        "category": "applications"
+      },
+      {
+        "term": "Paint",
+        "devanagari": "पेंट",
+        "category": "applications"
+      },
+      {
+        "term": "Task Manager",
+        "devanagari": "टास्क मैनेजर",
+        "category": "applications"
+      },
+      {
+        "term": "Control Panel",
+        "devanagari": "कंट्रोल पैनल",
+        "category": "applications"
+      },
+      {
+        "term": "Outlook",
+        "devanagari": "आउटलुक",
+        "category": "applications"
+      },
+      {
+        "term": "Edge",
+        "devanagari": "एज",
+        "category": "applications"
+      },
+      {
+        "term": "Firefox",
+        "devanagari": "फायरफॉक्स",
+        "category": "applications"
+      },
+      {
+        "term": "VS Code",
+        "devanagari": "वी एस कोड",
+        "category": "applications"
+      },
+      {
+        "term": "VSCode",
+        "devanagari": "वी एस कोड",
+        "category": "applications"
+      },
+      {
+        "term": "Command Prompt",
+        "devanagari": "कमांड प्रॉम्प्ट",
+        "category": "applications"
+      },
+      {
+        "term": "PowerShell",
+        "devanagari": "पावरशेल",
+        "category": "applications"
+      }
+    ],
+    "ai_models_providers": [
+      {
+        "term": "JARVIS",
+        "devanagari": "जार्विस",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "AI",
+        "devanagari": "ए-आई",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "Assistant",
+        "devanagari": "असिस्टेंट",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "Claude",
+        "devanagari": "क्लॉड",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "Opus",
+        "devanagari": "ओपस",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "OpenClaw",
+        "devanagari": "ओपन क्लॉ",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "Groq",
+        "devanagari": "ग्रोक",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "Gemini",
+        "devanagari": "जेमिनाई",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "Ollama",
+        "devanagari": "ओलामा",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "Llama",
+        "devanagari": "लामा",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "Qwen",
+        "devanagari": "क्वेन",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "OpenAI",
+        "devanagari": "ओपन ए आई",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "GPT",
+        "devanagari": "जी पी टी",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "Anthropic",
+        "devanagari": "एंथ्रोपिक",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "Kokoro",
+        "devanagari": "कोकोरो",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "Python",
+        "devanagari": "पाइथन",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "JavaScript",
+        "devanagari": "जावास्क्रिप्ट",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "JSON",
+        "devanagari": "जेसन",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "Qt",
+        "devanagari": "क्यूट",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "ONNX",
+        "devanagari": "ऑनिक्स",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "PyTorch",
+        "devanagari": "पाइटॉर्च",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "API",
+        "devanagari": "ए पी आई",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "CLI",
+        "devanagari": "सी एल आई",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "LLM",
+        "devanagari": "एल एल एम",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "TTS",
+        "devanagari": "टी टी एस",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "STT",
+        "devanagari": "एस टी टी",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "URL",
+        "devanagari": "यू आर एल",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "HTTP",
+        "devanagari": "एच टी टी पी",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "VPN",
+        "devanagari": "वी पी एन",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "USB",
+        "devanagari": "यू एस बी",
+        "category": "ai_models_providers"
+      },
+      {
+        "term": "Microsoft",
+        "devanagari": "माइक्रोसॉफ्ट",
+        "category": "ai_models_providers"
+      }
+    ],
+    "tool_function_names": [
+      {
+        "term": "open_application",
+        "devanagari": "ओपन एप्लीकेशन",
+        "category": "tool_function_names"
+      },
+      {
+        "term": "close_application",
+        "devanagari": "क्लोज़ एप्लीकेशन",
+        "category": "tool_function_names"
+      },
+      {
+        "term": "run_claude_cli",
+        "devanagari": "रन क्लॉड सी एल आई",
+        "category": "tool_function_names"
+      },
+      {
+        "term": "analyze_screen",
+        "devanagari": "एनालाइज़ स्क्रीन",
+        "category": "tool_function_names"
+      },
+      {
+        "term": "main.py",
+        "devanagari": "मेन डॉट पाइ",
+        "category": "tool_function_names"
+      },
+      {
+        "term": "config.json",
+        "devanagari": "कॉन्फ़िग डॉट जेसन",
+        "category": "tool_function_names"
+      },
+      {
+        "term": "repository",
+        "devanagari": "रिपॉज़िटरी",
+        "category": "tool_function_names"
+      }
+    ],
+    "hinglish_phrases": [
+      {
+        "term": "ho gaya hai",
+        "devanagari": "हो गया है",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "ho gaya",
+        "devanagari": "हो गया",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "ho gayi hai",
+        "devanagari": "हो गई है",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "ho gayi",
+        "devanagari": "हो गई",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "kar diya hai",
+        "devanagari": "कर दिया है",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "kar diya gaya hai",
+        "devanagari": "कर दिया गया है",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "kar diya gaya",
+        "devanagari": "कर दिया गया",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "kar diya",
+        "devanagari": "कर दिया",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "khol diya hai",
+        "devanagari": "खोल दिया है",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "khol diya",
+        "devanagari": "खोल दिया",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "band kar diya",
+        "devanagari": "बंद कर दिया",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "chal raha hai",
+        "devanagari": "चल रहा है",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "shuru ho gaya",
+        "devanagari": "शुरू हो गया",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "shuru kar diya",
+        "devanagari": "शुरू कर दिया",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "kar raha hoon",
+        "devanagari": "कर रहा हूँ",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "kar raha hu",
+        "devanagari": "कर रहा हूँ",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "sun raha hoon",
+        "devanagari": "सुन रहा हूँ",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "sun raha hu",
+        "devanagari": "सुन रहा हूँ",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "gaya hai",
+        "devanagari": "गया है",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "gayi hai",
+        "devanagari": "गई है",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "gaye hain",
+        "devanagari": "गए हैं",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "diya hai",
+        "devanagari": "दिया है",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "diye hain",
+        "devanagari": "दिए हैं",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "gaya",
+        "devanagari": "गया",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "gayi",
+        "devanagari": "गई",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "gaye",
+        "devanagari": "गए",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "diya",
+        "devanagari": "दिया",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "aur",
+        "devanagari": "और",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "aapka",
+        "devanagari": "आपका",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "aapki",
+        "devanagari": "आपकी",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "aapke",
+        "devanagari": "आपके",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "mera",
+        "devanagari": "मेरा",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "meri",
+        "devanagari": "मेरी",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "mere",
+        "devanagari": "मेरे",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "raha hai",
+        "devanagari": "रहा है",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "rahi hai",
+        "devanagari": "रही है",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "rahe hain",
+        "devanagari": "रहे हैं",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "raha",
+        "devanagari": "रहा",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "rahi",
+        "devanagari": "रही",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "rahe",
+        "devanagari": "रहे",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "hain",
+        "devanagari": "हैं",
+        "category": "hinglish_phrases"
+      },
+      {
+        "term": "hai",
+        "devanagari": "है",
+        "category": "hinglish_phrases"
+      }
+    ],
+    "business_finance": [
+      {
+        "term": "policy",
+        "devanagari": "पॉलिसी",
+        "category": "business_finance"
+      },
+      {
+        "term": "policies",
+        "devanagari": "पॉलिसियां",
+        "category": "business_finance"
+      },
+      {
+        "term": "premium",
+        "devanagari": "प्रीमियम",
+        "category": "business_finance"
+      },
+      {
+        "term": "insurance",
+        "devanagari": "इंश्योरेंस",
+        "category": "business_finance"
+      },
+      {
+        "term": "commission",
+        "devanagari": "कमीशन",
+        "category": "business_finance"
+      },
+      {
+        "term": "tax",
+        "devanagari": "टैक्स",
+        "category": "business_finance"
+      },
+      {
+        "term": "taxes",
+        "devanagari": "टैक्स",
+        "category": "business_finance"
+      },
+      {
+        "term": "GST",
+        "devanagari": "जी एस टी",
+        "category": "business_finance"
+      },
+      {
+        "term": "claim",
+        "devanagari": "क्लेम",
+        "category": "business_finance"
+      },
+      {
+        "term": "maturity",
+        "devanagari": "मैच्योरिटी",
+        "category": "business_finance"
+      },
+      {
+        "term": "bonus",
+        "devanagari": "बोनस",
+        "category": "business_finance"
+      },
+      {
+        "term": "fund",
+        "devanagari": "फंड",
+        "category": "business_finance"
+      },
+      {
+        "term": "funds",
+        "devanagari": "फंड्स",
+        "category": "business_finance"
+      },
+      {
+        "term": "agent",
+        "devanagari": "एजेंट",
+        "category": "business_finance"
+      },
+      {
+        "term": "nominee",
+        "devanagari": "नॉमिनी",
+        "category": "business_finance"
+      },
+      {
+        "term": "account",
+        "devanagari": "अकाउंट",
+        "category": "business_finance"
+      },
+      {
+        "term": "balance",
+        "devanagari": "बैलेंस",
+        "category": "business_finance"
+      },
+      {
+        "term": "payment",
+        "devanagari": "पेमेंट",
+        "category": "business_finance"
+      },
+      {
+        "term": "salary",
+        "devanagari": "सैलरी",
+        "category": "business_finance"
+      },
+      {
+        "term": "investment",
+        "devanagari": "इन्वेस्टमेंट",
+        "category": "business_finance"
+      }
+    ],
+    "daily_commands_utilities": [
+      {
+        "term": "volume up",
+        "devanagari": "वॉल्यूम अप",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "volume down",
+        "devanagari": "वॉल्यूम डाउन",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "headphones",
+        "devanagari": "हेडफ़ोन",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "earphones",
+        "devanagari": "इयरफ़ोन",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "screenshot",
+        "devanagari": "स्क्रीनशॉट",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "fullscreen",
+        "devanagari": "फुलस्क्रीन",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "minimize",
+        "devanagari": "मिनीमाइज़",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "maximize",
+        "devanagari": "मैक्सिमाइज",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "zoom in",
+        "devanagari": "ज़ूम इन",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "zoom out",
+        "devanagari": "ज़ूम आउट",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "scroll up",
+        "devanagari": "स्क्रॉल अप",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "scroll down",
+        "devanagari": "स्क्रॉल डाउन",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "scroll",
+        "devanagari": "स्क्रॉल",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "hotspot",
+        "devanagari": "हॉटस्पॉट",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "webcam",
+        "devanagari": "वेबकैम",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "new tab",
+        "devanagari": "न्यू टैब",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "close tab",
+        "devanagari": "क्लोज़ टैब",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "switch tab",
+        "devanagari": "स्विच टैब",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "incognito",
+        "devanagari": "इन्कॉग्निटो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "history",
+        "devanagari": "हिस्ट्री",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "bookmark",
+        "devanagari": "बुकमार्क",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "bookmarks",
+        "devanagari": "बुकमार्क्स",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "refresh",
+        "devanagari": "रिफ्रेश",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "reload",
+        "devanagari": "रीलोड",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "webpage",
+        "devanagari": "वेबपेज",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "forward",
+        "devanagari": "फॉरवर्ड",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "backward",
+        "devanagari": "बैकवर्ड",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "videos",
+        "devanagari": "वीडियोज़",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "movie",
+        "devanagari": "मूवी",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "playlist",
+        "devanagari": "प्लेलिस्ट",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "track",
+        "devanagari": "ट्रैक",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "next song",
+        "devanagari": "नेक्स्ट सॉन्ग",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "previous song",
+        "devanagari": "प्रीवियस सॉन्ग",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "shuffle",
+        "devanagari": "शफ़ल",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "repeat",
+        "devanagari": "रिपीट",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "subtitles",
+        "devanagari": "सबटाइटल्स",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "speed",
+        "devanagari": "स्पीड",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "document",
+        "devanagari": "डॉक्यूमेंट",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "recycle bin",
+        "devanagari": "रीसाइकिल बिन",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "shortcut",
+        "devanagari": "शॉर्टकट",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "rename",
+        "devanagari": "रीनेम",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "compress",
+        "devanagari": "कंप्रेस",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "extract",
+        "devanagari": "एक्सट्रैक्ट",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "alarm",
+        "devanagari": "अलार्म",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "alarms",
+        "devanagari": "अलार्म्स",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "timer",
+        "devanagari": "टाइमर",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "stopwatch",
+        "devanagari": "स्टॉपवॉच",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "reminder",
+        "devanagari": "रिमाइंडर",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "reminders",
+        "devanagari": "रिमाइंडर्स",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "calendar",
+        "devanagari": "कैलेंडर",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "clock",
+        "devanagari": "क्लॉक",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "weather",
+        "devanagari": "वेदर",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "temperature",
+        "devanagari": "टेंपरेचर",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "forecast",
+        "devanagari": "फोरकास्ट",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "news",
+        "devanagari": "न्यूज़",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "headlines",
+        "devanagari": "हेडलाइंस",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "notes",
+        "devanagari": "नोट्स",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "task",
+        "devanagari": "टास्क",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "tasks",
+        "devanagari": "टास्क्स",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "schedule",
+        "devanagari": "शेड्यूल",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "meeting",
+        "devanagari": "मीटिंग",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "chat",
+        "devanagari": "चैट",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "email",
+        "devanagari": "ईमेल",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "inbox",
+        "devanagari": "इनबॉक्स",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "select all",
+        "devanagari": "सेलेक्ट ऑल",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "select",
+        "devanagari": "सेलेक्ट",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "undo",
+        "devanagari": "अनडू",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "redo",
+        "devanagari": "रीडू",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "cut",
+        "devanagari": "कट",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "print",
+        "devanagari": "प्रिंट",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "search karo",
+        "devanagari": "सर्च करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "open karo",
+        "devanagari": "ओपन करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "close karo",
+        "devanagari": "क्लोज़ करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "play karo",
+        "devanagari": "प्ले करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "pause karo",
+        "devanagari": "पॉज़ करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "mute karo",
+        "devanagari": "म्यूट करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "unmute karo",
+        "devanagari": "अनम्यूट करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "save karo",
+        "devanagari": "सेव करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "delete karo",
+        "devanagari": "डिलीट करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "send karo",
+        "devanagari": "सेंड करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "check karo",
+        "devanagari": "चेक करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "call karo",
+        "devanagari": "कॉल करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "click karo",
+        "devanagari": "क्लिक करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "type karo",
+        "devanagari": "टाइप करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "download karo",
+        "devanagari": "डाउनलोड करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "on karo",
+        "devanagari": "ऑन करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "off karo",
+        "devanagari": "ऑफ करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "turn on",
+        "devanagari": "टर्न ऑन",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "turn off",
+        "devanagari": "टर्न ऑफ",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "switch on",
+        "devanagari": "स्विच ऑन",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "switch off",
+        "devanagari": "स्विच ऑफ",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "set karo",
+        "devanagari": "सेट करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "kam karo",
+        "devanagari": "कम करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "badhao",
+        "devanagari": "बढ़ाओ",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "dheere karo",
+        "devanagari": "धीरे करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "tez karo",
+        "devanagari": "तेज़ करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "lock karo",
+        "devanagari": "लॉक करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "unlock karo",
+        "devanagari": "अनलॉक करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "restart karo",
+        "devanagari": "रीस्टार्ट करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "shutdown karo",
+        "devanagari": "शटडाउन करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "find",
+        "devanagari": "फ़ाइंड",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "read karo",
+        "devanagari": "रीड करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "write karo",
+        "devanagari": "राइट करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "copy karo",
+        "devanagari": "कॉपी करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "paste karo",
+        "devanagari": "पेस्ट करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "cut karo",
+        "devanagari": "कट करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "clear karo",
+        "devanagari": "क्लियर करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "clean karo",
+        "devanagari": "क्लीन करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "install karo",
+        "devanagari": "इंस्टॉल करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "update karo",
+        "devanagari": "अपडेट करो",
+        "category": "daily_commands_utilities"
+      },
+      {
+        "term": "remove karo",
+        "devanagari": "रिमूव करो",
+        "category": "daily_commands_utilities"
+      }
+    ]
+  }
+}

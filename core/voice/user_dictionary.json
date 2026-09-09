@@ -1,0 +1,22 @@
+{
+  "_meta": {
+    "description": "User-defined custom pronunciation overrides for JARVIS. Words added through the Voice Settings UI or add_custom_word() persist here."
+  },
+  "words": [
+    {
+      "term": "Rohit",
+      "devanagari": "रोहित",
+      "category": "user_profile"
+    },
+    {
+      "term": "Kumar",
+      "devanagari": "कुमार",
+      "category": "user_profile"
+    },
+    {
+      "term": "Rohit Kumar",
+      "devanagari": "रोहित कुमार",
+      "category": "user_profile"
+    }
+  ]
+}

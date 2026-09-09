@@ -1,0 +1,36 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Voice model binaries (auto-downloaded via core/voice/download_kokoro.py)
+core/voice/models/
+*.onnx
+*.bin
+
+# Logs and runtime data
+logs/
+*.log
+
+# Sensitive configuration & local keys
+config.json
+.env
+.env.*
+secrets.json
+
+# Test output artifacts
+tests/*.png
+tests/*.wav
+
+# Editor & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
