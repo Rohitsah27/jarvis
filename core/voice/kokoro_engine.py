@@ -64,6 +64,14 @@ class KokoroEngine:
         """Checks if Kokoro library and model files are present."""
         return HAS_KOKORO and self._model_path.exists() and self._voices_path.exists()
 
+    def status_summary(self) -> str:
+        """One-line human-readable status for the Project Health dashboard."""
+        if self._loaded:
+            return "Ready (Kokoro ONNX)"
+        if not self.is_available():
+            return "Not installed (model files missing)"
+        return "Not loaded yet"
+
     def _ensure_loaded(self) -> bool:
         if self._loaded and self._kokoro:
             return True

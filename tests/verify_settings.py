@@ -15,8 +15,8 @@ from core.voice.voice_engine import voice_engine
 def verify():
     app = JarvisApplication(sys.argv)
     window = JarvisMainWindow()
-    # Switch to Settings page (index 10)
-    window.sidebar.select_page(10)
+    # Switch to Settings page (index 11)
+    window.sidebar.select_page(11)
     window.show()
 
     def capture_and_close():

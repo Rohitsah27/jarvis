@@ -973,6 +973,57 @@ class GetSystemStatusTool(BaseTool):
             return ToolResult(False, f"System diagnostic error: {str(e)}", self.name, error=str(e))
 
 
+class GetObservedIssuesTool(BaseTool):
+    """
+    Answers 'what problem did you observe' — reads from Observe Mode's
+    recorded issues (core/observability/observer.py), it does not run any
+    new diagnostics itself. Read-only: this tool only explains, it never
+    changes anything. If the user then wants it fixed, that goes through
+    the separate, explicitly-confirmed auto-fix flow (core/observability/
+    auto_fix.py), never through this tool call.
+    """
+
+    @property
+    def name(self) -> str:
+        return "get_observed_issues"
+
+    @property
+    def description(self) -> str:
+        return (
+            "Explains the most recently observed runtime problem (error, failed action, "
+            "STT/TTS failure) in plain language with a suggested fix. Use this whenever the "
+            "user asks what problem/issue/error JARVIS has noticed, seen, or observed. "
+            "Read-only — does not change or fix anything."
+        )
+
+    @property
+    def permission_level(self) -> PermissionLevel:
+        return PermissionLevel.SAFE
+
+    def execute(self, **kwargs) -> ToolResult:
+        try:
+            from core.observability.observer import observer
+            from core.observability.auto_fix import auto_fix_manager
+
+            explanation = observer.explain_last_issue()
+            last_issue = observer.get_last_issue()
+
+            # Offering to fix HERE (as part of answering "what problem did
+            # you observe") rather than proactively the moment an issue is
+            # recorded is deliberate — an issue is only worth interrupting
+            # the user about once they've actually asked; recording every
+            # transient hiccup (a VAD false positive, one flaky network
+            # call) is useful history, not something worth nagging about.
+            if last_issue is not None and not auto_fix_manager.is_awaiting_confirmation():
+                question = auto_fix_manager.propose_fix(last_issue)
+                explanation = f"{explanation} {question}"
+
+            data = {"issue_id": last_issue.id} if last_issue else {}
+            return ToolResult(True, explanation, self.name, data=data)
+        except Exception as e:
+            return ToolResult(False, f"Could not retrieve observed issues: {str(e)}", self.name, error=str(e))
+
+
 class CreateFolderTool(BaseTool):
     """Creates a new folder in user's Desktop or specified location."""
 

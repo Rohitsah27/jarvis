@@ -9,6 +9,7 @@ from ui.pages.files_page import FilesPage
 from ui.pages.browser_page import BrowserPage
 from ui.pages.automation_page import AutomationPage
 from ui.pages.skills_page import SkillsPage
+from ui.pages.health_page import HealthPage
 from ui.pages.settings_page import SettingsPage
 
 __all__ = [
@@ -22,5 +23,6 @@ __all__ = [
     "BrowserPage",
     "AutomationPage",
     "SkillsPage",
+    "HealthPage",
     "SettingsPage",
 ]

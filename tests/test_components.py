@@ -63,7 +63,7 @@ def test_ui_instantiation():
     assert window is not None
 
     # Test page switches
-    for page_idx in range(11):
+    for page_idx in range(12):
         window.sidebar.select_page(page_idx)
         assert window.pages_stack.currentIndex() == page_idx
 

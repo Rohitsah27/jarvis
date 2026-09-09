@@ -179,7 +179,8 @@ class JarvisSidebar(QWidget):
         ("🌐", "Browser", 7),
         ("⚡", "Automation", 8),
         ("✨", "Skills", 9),
-        ("⚙️", "Settings", 10),
+        ("🩺", "Health", 10),
+        ("⚙️", "Settings", 11),
     ]
 
 

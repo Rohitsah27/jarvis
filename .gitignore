@@ -17,6 +17,8 @@ core/voice/models/
 # Logs and runtime data
 logs/
 *.log
+data/*.json
+!data/.gitkeep
 
 # Sensitive configuration & local keys
 config.json
@@ -31,6 +33,7 @@ tests/*.wav
 # Editor & OS files
 .vscode/
 .idea/
+.claude/
 .DS_Store
 Thumbs.db
 Desktop.ini

@@ -40,6 +40,9 @@ _VOCAB_FIXES = {
     "Opus": ["oppus", "opas", "o p u s", "aupus"],
     "API": ["a p i", "eypeeai", "e p i", "a.p.i"],
     "local LLM": ["local el el em", "local ellum", "lokal llm"],
+    "VS Code": ["vias code", "we as code", "visual code", "wiscode", "v s code", "vs cod", "visa code"],
+    "cmd": ["see em dee", "c m d", "seemdee"],
+    "Terminal": ["turminal", "terminel", "terminul", "termnal"],
 }
 
 # Longest-phrase-first so multi-word fixes (e.g. "local llm") take priority

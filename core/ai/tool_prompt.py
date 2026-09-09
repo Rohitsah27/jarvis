@@ -52,6 +52,7 @@ def build_tools_system_prompt(user_name: str = "") -> str:
         "- scroll_screen(direction, amount): Scrolls up or down in whatever window has focus.\n"
         "- take_screenshot(save_to): Desktop screenshot.\n"
         "- get_system_status(): Hardware CPU, RAM, Disk, Battery diagnostics.\n"
+        "- get_observed_issues(): Explains the most recent error/problem JARVIS has noticed in its own operation (a failed action, a crash, an STT/TTS failure). Use this whenever the user asks what problem/issue/error JARVIS observed, saw, or noticed. Read-only — never fixes anything itself.\n"
         "- run_claude_cli(task): ONLY use this when the user explicitly asks to delegate an actual coding/development task on the JARVIS project itself to Claude/Claude CLI — e.g. 'ask Claude to fix the volume bug', 'claude se is bug ko fix karwao', 'get Claude to add a new feature'. Pass a clear, specific task description. Takes a while (seconds to minutes) — tell the user it's running, don't imply it's already done. NEVER use this for normal conversation or for controlling other apps — it is specifically for asking the Claude Code coding agent to change JARVIS's own code.\n\n"
         "TOOL OUTPUT FORMAT:\n"
         "If an action/tool is required, you MUST append action blocks at the very end of your response:\n"

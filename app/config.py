@@ -56,9 +56,31 @@ class AppConfig:
     VOICE_CONFIRMATION_BEFORE_EXECUTE: bool = True     # Talk first and confirm command via voice before executing
     SPEAK_RESPONSES: bool = True                      # Vocalize responses through Windows speakers
     MIC_ENERGY_THRESHOLD: int = 75                    # Calibrated speech floor (speech: 80-350+, ambient silence: 0-35)
-    MIC_PAUSE_THRESHOLD: float = 0.6                  # Rapid response when user finishes speaking
-    MIC_PHRASE_LIMIT: int = 7                         # Prevents long recordings on noise
+    # Renamed from MIC_PAUSE_THRESHOLD (was 0.6s) — that was the actual bug
+    # behind "if I pause briefly, it finalizes too early": 0.6s of silence
+    # is well within a normal thinking-pause mid-sentence. 2.0s only
+    # finalizes once the user has genuinely stopped talking, while still
+    # merging brief pauses into the same utterance (this IS how
+    # SpeechRecognition's own pause_threshold works — it doesn't cut on
+    # every silent frame, only once silence has been continuous for this
+    # long, which already gives the "merge short pauses" behavior asked
+    # for without needing a separate buffering layer).
+    STT_PAUSE_TIMEOUT_SECONDS: float = 2.0
+    MIC_PHRASE_LIMIT: int = 15                        # Max seconds per utterance (raised from 7 now that pauses
+                                                        # up to STT_PAUSE_TIMEOUT_SECONDS no longer end it early —
+                                                        # a real multi-clause sentence with a couple of pauses could
+                                                        # otherwise get cut off before the user finishes)
     MIC_DEVICE_INDEX: Optional[int] = None            # Selected microphone index (None = System Default)
+
+    # Speech-to-Text Engine Configuration
+    STT_ENGINE: str = "faster_whisper"                # Primary: "faster_whisper" (local, offline) or "google" (cloud)
+    STT_FALLBACK_ENGINE: str = "google"               # Used if the primary engine fails to load or errors on a call
+    STT_WHISPER_MODEL_SIZE: str = "small"             # tiny(~75MB)/base(~145MB)/small(~484MB)/medium(~1.5GB)/large-v3(~3GB)
+                                                        # "small" chosen as the minimum size with solid Hindi accuracy —
+                                                        # tiny/base are noticeably worse on Hindi specifically. Raise this
+                                                        # if disk space allows; lower it if it doesn't.
+    STT_WHISPER_DEVICE: str = "cpu"                   # "cpu" or "cuda" (only if you have a compatible NVIDIA GPU + CUDA)
+    STT_WHISPER_COMPUTE_TYPE: str = "int8"            # Quantized for CPU speed/memory; use "float16" only with STT_WHISPER_DEVICE="cuda"
     BARGE_IN_ENABLED: bool = False                    # Allow speaking over JARVIS to interrupt it mid-reply.
                                                         # Off by default: in testing, energy-threshold barge-in
                                                         # false-triggered on nearly every reply (ambient noise/own
@@ -166,6 +188,13 @@ class AppConfig:
                 "ELEVENLABS_API_KEY": self.ELEVENLABS_API_KEY,
                 "MIC_ENERGY_THRESHOLD": self.MIC_ENERGY_THRESHOLD,
                 "MIC_DEVICE_INDEX": self.MIC_DEVICE_INDEX,
+                "STT_PAUSE_TIMEOUT_SECONDS": self.STT_PAUSE_TIMEOUT_SECONDS,
+                "MIC_PHRASE_LIMIT": self.MIC_PHRASE_LIMIT,
+                "STT_ENGINE": self.STT_ENGINE,
+                "STT_FALLBACK_ENGINE": self.STT_FALLBACK_ENGINE,
+                "STT_WHISPER_MODEL_SIZE": self.STT_WHISPER_MODEL_SIZE,
+                "STT_WHISPER_DEVICE": self.STT_WHISPER_DEVICE,
+                "STT_WHISPER_COMPUTE_TYPE": self.STT_WHISPER_COMPUTE_TYPE,
             }
             with open(json_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)

@@ -51,6 +51,14 @@ class XTTSEngine:
         """Checks if the coqui-tts package is installed."""
         return HAS_XTTS
 
+    def status_summary(self) -> str:
+        """One-line human-readable status for the Project Health dashboard."""
+        if self._loaded:
+            return "Ready (XTTS)"
+        if not self.is_available():
+            return "Not installed (coqui-tts missing)"
+        return "Not loaded yet"
+
     def _ensure_loaded(self) -> bool:
         if self._loaded and self._tts:
             return True

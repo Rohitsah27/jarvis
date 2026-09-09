@@ -4,6 +4,9 @@ pywin32>=306
 SpeechRecognition>=3.14.0
 pyaudio>=0.2.14
 webrtcvad-wheels>=2.0.14   # Real voice-activity detection to filter ambient noise before STT (tiny, ~20KB)
+faster-whisper>=1.0.0      # Local offline STT (primary engine) — package itself is small (~48MB incl.
+                           # ctranslate2/av); model weights download separately on first use
+                           # (~484MB for the default "small" size, see STT_WHISPER_MODEL_SIZE in config)
 pycaw>=20240210            # Per-app/default audio device diagnostics + device-targeted TTS playback
 comtypes>=1.4.0            # COM bindings required by pycaw
 

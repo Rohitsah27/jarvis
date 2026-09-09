@@ -38,6 +38,7 @@ except Exception:
 
 from app.config import config
 from core.telemetry import now as telemetry_now, log_stage
+from core.voice.stt_engine import stt_engine
 
 
 class VoiceState(Enum):
@@ -653,7 +654,7 @@ class ContinuousMicListenerThread(QThread):
         if self.recognizer:
             self.recognizer.energy_threshold = config.MIC_ENERGY_THRESHOLD
             self.recognizer.dynamic_energy_threshold = False
-            self.recognizer.pause_threshold = config.MIC_PAUSE_THRESHOLD
+            self.recognizer.pause_threshold = config.STT_PAUSE_TIMEOUT_SECONDS
             self.recognizer.non_speaking_duration = 0.4
 
     def pause_listening(self):
@@ -814,28 +815,19 @@ class ContinuousMicListenerThread(QThread):
                             self.listening_resumed.emit()
                             continue
 
-                        print("[VoiceEngine] Sound captured! Processing phonemes...")
+                        print(f"[VoiceEngine] Sound captured! VAD=speech-like — transcribing "
+                              f"(engine={config.STT_ENGINE}, fallback={config.STT_FALLBACK_ENGINE})...")
                         self.speech_detected.emit()
-                        recognized_text = None
 
-                        # 1. Primary STT: Hindi (default spoken language)
-                        try:
-                            text = self.recognizer.recognize_google(audio, language=config.VOICE_LANGUAGE)
-                            if text and text.strip():
-                                recognized_text = text.strip()
-                        except Exception:
-                            pass
+                        result = stt_engine.transcribe(audio, self.recognizer)
+                        print(
+                            f"[VoiceEngine] STT result: engine={result.engine_used or 'none'} "
+                            f"fallback_used={result.used_fallback} duration={result.duration_ms:.0f}ms "
+                            f"raw='{result.text}'" + (f" error={result.error}" if result.error else "")
+                        )
 
-                        # 2. Secondary STT: Indian English (en-IN) fallback for English/Hinglish phrases
-                        if not recognized_text:
-                            try:
-                                text = self.recognizer.recognize_google(audio, language="en-IN")
-                                if text and text.strip():
-                                    recognized_text = text.strip()
-                            except Exception:
-                                pass
-
-                        if recognized_text:
+                        if result.success and result.text:
+                            recognized_text = result.text
                             print(f"[VoiceEngine] Heard user speech: '{recognized_text}'")
                             self.amplitude_tick.emit(0.0)
                             # Temporarily pause listener so JARVIS can think and speak without echo or queueing
@@ -843,6 +835,19 @@ class ContinuousMicListenerThread(QThread):
                             self.transcript_ready.emit(recognized_text)
                         else:
                             print("[VoiceEngine] Ambient sound filtered (no words recognized)")
+                            if result.error:
+                                # result.error is only ever set when a transcribe
+                                # call actually raised (both engines failed with
+                                # a real exception) — plain silence/no-speech
+                                # leaves it None, so this never fires on routine
+                                # "user didn't say anything" turns.
+                                from core.observability.observer import observer
+                                observer.record_issue(
+                                    "stt_error",
+                                    summary=f"Speech-to-text failed: {result.error}",
+                                    details=result.error,
+                                    source="voice_engine",
+                                )
                             self.listening_resumed.emit()
 
         except Exception as e:

@@ -33,6 +33,7 @@ from ui.pages import (
     BrowserPage,
     AutomationPage,
     SkillsPage,
+    HealthPage,
     SettingsPage,
 )
 from app.config import config
@@ -43,6 +44,8 @@ from core.voice.transcript_processor import to_hinglish_display
 from core.tools.tool_manager import tool_manager
 from core.system.monitor import SystemMonitorWorker, SystemTelemetry
 from core.telemetry import now as telemetry_now, log_stage
+from core.observability.observer import observer
+from core.observability.auto_fix import auto_fix_manager, AutoFixWorker
 
 # Hard cap on how much text is ever spoken aloud in one reply. Full detail
 # still shows in the chat UI — this only bounds what goes to TTS, so a long
@@ -89,6 +92,21 @@ class LLMWarmupWorker(QThread):
                 warm_up()
         except Exception as e:
             print(f"[LLMWarmupWorker] Warm-up warning: {e}")
+
+
+class STTPreloadWorker(QThread):
+    """Loads the Faster-Whisper model at startup, same idea as
+    TTSPreloadWorker — without this, the FIRST voice command of the
+    session would pay the full model-load cost (and, if the weights
+    haven't been downloaded yet, the download itself) before JARVIS could
+    transcribe anything."""
+
+    def run(self):
+        try:
+            from core.voice.stt_engine import stt_engine
+            stt_engine.ensure_whisper_loaded()
+        except Exception as e:
+            print(f"[STTPreloadWorker] Warm-up warning: {e}")
 
 
 class ToolExecutionWorker(QThread):
@@ -186,6 +204,7 @@ class AIInferenceWorker(QThread):
         except Exception as e:
             print(f"[AIInferenceWorker] Inference error: {e}")
             log_stage("AGENT_INTENT", t0, path="error", error=str(e))
+            observer.record_exception(e, category="ai_error", source="AIInferenceWorker")
             self.inference_completed.emit(
                 AIResponse(
                     content="सर, मैंने आपकी बात सुन ली है। आज्ञा दीजिए!",
@@ -226,6 +245,14 @@ class JarvisMainWindow(QMainWindow):
         # everything else.
         self._llm_warmup_worker = LLMWarmupWorker(self)
         self._llm_warmup_worker.start()
+
+        # Warm up Faster-Whisper (STT) the same way — the mic thread starts
+        # listening immediately (VoiceEngine's constructor runs at import
+        # time), so this is racing the user's first utterance rather than
+        # strictly guaranteeing a warm model, but it still covers the
+        # common case of at least a few seconds before anyone speaks.
+        self._stt_preload_worker = STTPreloadWorker(self)
+        self._stt_preload_worker.start()
 
     def _init_ui(self):
         # Root central widget with animated cybernetic HUD background effect
@@ -273,6 +300,7 @@ class JarvisMainWindow(QMainWindow):
         self.page_browser = BrowserPage(self)
         self.page_automation = AutomationPage(self)
         self.page_skills = SkillsPage(self)
+        self.page_health = HealthPage(self)
         self.page_settings = SettingsPage(self)
 
         self.pages_stack.addWidget(self.page_home)        # 0
@@ -285,7 +313,8 @@ class JarvisMainWindow(QMainWindow):
         self.pages_stack.addWidget(self.page_browser)     # 7
         self.pages_stack.addWidget(self.page_automation)  # 8
         self.pages_stack.addWidget(self.page_skills)      # 9
-        self.pages_stack.addWidget(self.page_settings)    # 10
+        self.pages_stack.addWidget(self.page_health)      # 10
+        self.pages_stack.addWidget(self.page_settings)    # 11
 
 
         body_layout.addWidget(self.pages_stack, 1)
@@ -449,6 +478,16 @@ class JarvisMainWindow(QMainWindow):
         tool to use, THEN ToolExecutionWorker runs it. There is no path that
         executes a tool without going through this selection step first.
         """
+        # Auto-fix confirmation takes priority over normal LLM routing: if
+        # JARVIS just asked "Should I ask Claude to fix this?", THIS turn's
+        # reply must be interpreted as answering that question, not sent
+        # through the model as an ordinary new request (a bare "haan"/"yes"
+        # would otherwise get answered conversationally and the pending
+        # confirmation would sit there stale forever).
+        if auto_fix_manager.is_awaiting_confirmation():
+            self._handle_pending_fix_reply(prompt)
+            return
+
         # pipeline_t0 is provided when this call continues a voice interaction
         # (reuses the MIC_INPUT_START anchor); typed input / quick actions
         # start a fresh timer here since there was no prior mic event.
@@ -554,8 +593,57 @@ class JarvisMainWindow(QMainWindow):
                 voice_engine.speak(_clip_for_speech(result.output), pipeline_t0=t0)
         else:
             self.page_system.activity_log.log_event(f"Tool execution failed: {result.output}", "WARN")
+            observer.record_issue(
+                "tool_failure",
+                summary=f"Tool '{result.tool_name}' failed: {result.output}",
+                details=result.error or result.output,
+                source=result.tool_name,
+            )
             if result.tool_name in self._SPEAK_TOOL_RESULTS and config.SPEAK_RESPONSES:
                 voice_engine.speak(_clip_for_speech(result.output), pipeline_t0=t0)
+
+    def _handle_pending_fix_reply(self, text: str):
+        """Answers a pending 'Should I ask Claude to fix this?' question.
+        Never reaches the LLM — see the module docstring in auto_fix.py for
+        why this has to be a hardcoded yes/no gate rather than a tool call."""
+        outcome = auto_fix_manager.handle_reply(text)
+        if outcome is None:
+            return
+        approved, task = outcome
+        if not approved or task is None:
+            reply = "ठीक है, मैं कोई बदलाव नहीं करूँगा।" if config.FORCE_HINDI_ONLY_SPEECH else "Okay, I won't make any changes."
+            self.page_chat.receive_ai_message(reply)
+            self.page_home.set_live_speech(reply, is_user=False)
+            if config.SPEAK_RESPONSES:
+                voice_engine.speak(_clip_for_speech(reply))
+            return
+
+        reply = "ठीक है, मैं Claude से यह ठीक करवाता हूँ। इसमें थोड़ा समय लगेगा।" if config.FORCE_HINDI_ONLY_SPEECH else "Okay, asking Claude to fix this now — this may take a little while."
+        self.page_chat.receive_ai_message(reply)
+        self.page_home.set_live_speech(reply, is_user=False)
+        self.page_system.activity_log.log_event(f"Auto-fix approved: task {task.id}", "AUTOFIX")
+        if config.SPEAK_RESPONSES:
+            voice_engine.speak(_clip_for_speech(reply))
+
+        if hasattr(self, "_fix_worker") and self._fix_worker and self._fix_worker.isRunning():
+            self._fix_worker.wait(200)
+        self._fix_worker = AutoFixWorker(task, self)
+        self._fix_worker.finished_fix.connect(self._on_fix_finished)
+        self._fix_worker.start()
+
+    def _on_fix_finished(self, task, success: bool, report: str):
+        self.page_system.activity_log.log_event(
+            f"Auto-fix {'succeeded' if success else 'failed'} for task {task.id}: {report[:200]}",
+            "AUTOFIX",
+        )
+        if success:
+            reply = "सर, मैंने Claude से समस्या ठीक करवा दी है और टेस्ट पास हो गए हैं।" if config.FORCE_HINDI_ONLY_SPEECH else "Sir, Claude finished the fix and the test suite passed."
+        else:
+            reply = "सर, ठीक करने की कोशिश हुई, लेकिन यह पूरी तरह से सफल नहीं रहा। कृपया लॉग देख लें।" if config.FORCE_HINDI_ONLY_SPEECH else "Sir, the fix attempt didn't fully succeed — please check the logs."
+        self.page_chat.receive_ai_message(reply)
+        self.page_home.set_live_speech(reply, is_user=False)
+        if config.SPEAK_RESPONSES:
+            voice_engine.speak(_clip_for_speech(reply))
 
     def _handle_quick_action(self, action_id: str):
         self.page_system.activity_log.log_event(f"Quick action triggered: {action_id}", "SYS")
