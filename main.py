@@ -21,6 +21,7 @@ if sys.stderr and hasattr(sys.stderr, "reconfigure"):
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app.application import JarvisApplication
+from ui.components.splash_screen import JarvisSplashScreen
 from ui.main_window import JarvisMainWindow
 
 _default_excepthook = sys.excepthook
@@ -46,8 +47,17 @@ def main():
     """Initializes and runs the JARVIS desktop interface."""
     app = JarvisApplication(sys.argv)
 
-    window = JarvisMainWindow()
-    window.show()
+    # 1. Display holographic cybernetic splash screen immediately
+    splash = JarvisSplashScreen()
+    splash.show()
+    splash.set_progress(8, "INITIALIZING CORE SUBSYSTEMS...")
+    app.processEvents()
+
+    # 2. Construct main window with real-time progress reporting
+    window = JarvisMainWindow(splash=splash)
+
+    # 3. Smooth transition from splash screen to main window
+    splash.finish(window)
 
     sys.exit(app.exec())
 

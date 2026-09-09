@@ -217,8 +217,12 @@ class AIInferenceWorker(QThread):
 class JarvisMainWindow(QMainWindow):
     """JARVIS Main Desktop Window."""
 
-    def __init__(self):
+    def __init__(self, splash=None):
         super().__init__()
+        self._splash = splash
+
+        if self._splash:
+            self._splash.set_progress(15, "INITIALIZING CYBERNETIC FRAMEWORK...")
 
         self.setWindowTitle(f"{config.APP_NAME} - {config.APP_SUBTITLE}")
         self.resize(config.DEFAULT_WIDTH, config.DEFAULT_HEIGHT)
@@ -230,10 +234,24 @@ class JarvisMainWindow(QMainWindow):
 
         self.setStyleSheet(get_application_stylesheet())
 
+        if self._splash:
+            self._splash.set_progress(25, "ASSEMBLING CYBERNETIC HUD INTERFACE...")
+
         self._init_ui()
+
+        if self._splash:
+            self._splash.set_progress(75, "CALIBRATING SYSTEM MONITORS & TELEMETRY...")
+
         self._init_system_monitor()
+
+        if self._splash:
+            self._splash.set_progress(85, "WIRING NEURAL EVENT DISPATCHERS...")
+
         self._wire_events()
         self._center_on_screen()
+
+        if self._splash:
+            self._splash.set_progress(92, "STARTING BACKGROUND NEURAL WORKERS...")
 
         # Warm up the TTS model immediately so the first reply isn't slowed down
         # by a one-time model load.
@@ -253,6 +271,9 @@ class JarvisMainWindow(QMainWindow):
         # common case of at least a few seconds before anyone speaks.
         self._stt_preload_worker = STTPreloadWorker(self)
         self._stt_preload_worker.start()
+
+        if self._splash:
+            self._splash.set_progress(100, "ALL SYSTEMS OPERATIONAL. READY.")
 
     def _init_ui(self):
         # Root central widget with animated cybernetic HUD background effect
@@ -287,13 +308,24 @@ class JarvisMainWindow(QMainWindow):
         self.sidebar.setVisible(False)
         body_layout.addWidget(self.sidebar)
 
+        if self._splash:
+            self._splash.set_progress(32, "LOADING 3D HOLOGRAPHIC HUD CORE...")
+
         # Stacked Pages
         self.pages_stack = QStackedWidget(self)
 
         self.page_home = HomePage(self)
+
+        if self._splash:
+            self._splash.set_progress(48, "INITIALIZING VOICE & CHAT MODULES...")
+
         self.page_chat = ChatPage(self)
         self.page_voice = VoicePage(self)
         self.page_system = SystemPage(self)
+
+        if self._splash:
+            self._splash.set_progress(62, "CONFIGURING SYSTEM CONTROL & DIAGNOSTICS...")
+
         self.page_control = ControlPage(self)
         self.page_apps = AppsPage(self)
         self.page_files = FilesPage(self)

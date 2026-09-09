@@ -9,6 +9,7 @@ from ui.components.chat_widget import ChatConsoleWidget, ChatMessageBubble
 from ui.components.activity_log import ActivityLogWidget
 from ui.components.background import JarvisBackgroundWidget
 from ui.components.audio_vibration import JarvisAudioVibrationWidget
+from ui.components.splash_screen import JarvisSplashScreen
 
 __all__ = [
     "JarvisTitleBar",
@@ -23,4 +24,5 @@ __all__ = [
     "ActivityLogWidget",
     "JarvisBackgroundWidget",
     "JarvisAudioVibrationWidget",
+    "JarvisSplashScreen",
 ]
