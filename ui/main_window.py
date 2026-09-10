@@ -181,6 +181,10 @@ class AIInferenceWorker(QThread):
                 return
 
             if decision.source == "fast":
+                try:
+                    ai_manager.record_interaction(self.prompt, decision.response_content)
+                except Exception:
+                    pass
                 self.inference_completed.emit(
                     AIResponse(
                         content=decision.response_content,
@@ -251,6 +255,13 @@ class JarvisMainWindow(QMainWindow):
 
         self._wire_events()
         self._center_on_screen()
+
+        # Voice Inactivity Timer (15 minutes silence -> standby 'System Online')
+        self._voice_inactivity_timer = QTimer(self)
+        self._voice_inactivity_timer.setSingleShot(True)
+        timeout_ms = int(getattr(config, "VOICE_INACTIVITY_TIMEOUT_MINUTES", 15) * 60 * 1000)
+        self._voice_inactivity_timer.setInterval(timeout_ms)
+        self._voice_inactivity_timer.timeout.connect(self._on_voice_inactivity_timeout)
 
         if not self._splash:
             # When running without splash screen (e.g. tests), start standard background preloaders
@@ -445,6 +456,24 @@ class JarvisMainWindow(QMainWindow):
         self.page_home.update_telemetry(t)
         self.page_system.update_telemetry(t)
 
+    def _reset_voice_inactivity_timer(self):
+        """Resets the 15-minute inactivity countdown while voice listening is active."""
+        if getattr(config, "ALWAYS_LISTEN", True) or voice_engine.state == VoiceState.LISTENING:
+            timeout_ms = int(getattr(config, "VOICE_INACTIVITY_TIMEOUT_MINUTES", 15) * 60 * 1000)
+            self._voice_inactivity_timer.start(timeout_ms)
+
+    def _on_voice_inactivity_timeout(self):
+        """
+        Triggered when there is no user input for 15 minutes while listening.
+        Switches from active listening to standby ('System Online').
+        """
+        print("[VoiceEngine] 15 minutes of inactivity reached — entering standby ('System Online').")
+        self.page_system.activity_log.log_event("15 mins inactivity — voice standby (System Online)", "INFO")
+        voice_engine.stop_listening()
+        self.title_bar.set_capsule_status("System Online", "ONLINE")
+        self.page_home.set_ai_state(AICoreState.IDLE)
+        self.page_home.set_mic_active(False)
+
     def _on_voice_state_changed(self, state: VoiceState):
         if state == VoiceState.LISTENING:
             self.title_bar.set_capsule_status("Listening...", "LISTENING")
@@ -452,7 +481,9 @@ class JarvisMainWindow(QMainWindow):
             self.page_home.set_mic_active(True)
             self.page_home.set_listening_hint()
             self.page_system.activity_log.log_event("Voice capture activated", "VOICE")
+            self._reset_voice_inactivity_timer()
         elif state == VoiceState.PROCESSING:
+            self._voice_inactivity_timer.stop()
             # Single anchor for the WHOLE interaction (mic -> STT -> agent ->
             # tool -> TTS), so "total latency" is honest about when the user
             # actually started speaking, not just when text became available.
@@ -477,10 +508,12 @@ class JarvisMainWindow(QMainWindow):
             self.page_home.set_processing_hint()
             self.page_system.activity_log.log_event("Speech processing phonemes", "VOICE")
         elif state == VoiceState.SPEAKING:
+            self._voice_inactivity_timer.stop()
             self.title_bar.set_capsule_status("Vocalizing...", "SPEAKING")
             self.page_home.set_ai_state(AICoreState.SPEAKING)
             self.page_system.activity_log.log_event("Audio vocalization active", "VOICE")
         elif state == VoiceState.MIC_UNAVAILABLE:
+            self._voice_inactivity_timer.stop()
             # Previously there was no such state — a dead mic thread left
             # the UI stuck showing "Listening..." forever. This is a clear,
             # distinct, recoverable state: click the mic button to retry.
@@ -500,6 +533,7 @@ class JarvisMainWindow(QMainWindow):
             except Exception:
                 pass
         else:
+            self._voice_inactivity_timer.stop()
             self.title_bar.set_capsule_status("System Online", "ONLINE")
             self.page_home.set_ai_state(AICoreState.IDLE)
             self.page_home.set_mic_active(False)
@@ -514,32 +548,52 @@ class JarvisMainWindow(QMainWindow):
         if config.ALWAYS_LISTEN:
             self.title_bar.set_capsule_status("Listening...", "LISTENING")
             self.page_home.set_ai_state(AICoreState.LISTENING)
+            self.page_home.set_mic_active(True)
+            self.page_home.set_listening_hint()
+            self._reset_voice_inactivity_timer()
         else:
             self.title_bar.set_capsule_status("System Online", "ONLINE")
             self.page_home.set_ai_state(AICoreState.IDLE)
+            self.page_home.set_mic_active(False)
 
     def _on_speech_interrupted(self):
         """User spoke over JARVIS's reply — same cleanup as a normal finish,
         since interruption bypasses speech_completed (must still clear
         _is_processing_ai or the anti-echo guard would ignore speech forever)."""
         self._is_processing_ai = False
+        try:
+            ai_manager.mark_last_assistant_message_interrupted()
+        except Exception:
+            pass
         self.page_system.activity_log.log_event("Speech interrupted by user — listening", "VOICE")
+        if config.ALWAYS_LISTEN:
+            self.title_bar.set_capsule_status("Listening...", "LISTENING")
+            self.page_home.set_ai_state(AICoreState.LISTENING)
+            self.page_home.set_mic_active(True)
+            self.page_home.set_listening_hint()
+            self._reset_voice_inactivity_timer()
 
     def _on_voice_transcript_received(self, text: str):
         """Called whenever speech recognition transcribes user speech."""
         if not text or not text.strip():
             return
         cleaned = text.strip()
+        self._reset_voice_inactivity_timer()
         # Reuses the MIC_INPUT_START anchor set when PROCESSING began, so
         # STT_RESULT (and everything after it) reads as real elapsed time
         # since the user started speaking, not from an arbitrary later point.
         mic_t0 = getattr(self, "_pipeline_t0", None)
         log_stage("STT_RESULT", mic_t0, text=cleaned[:40])
 
-        # Anti-echo / Anti-overlap guard: ignore microphone while JARVIS is actively speaking or processing
-        if voice_engine.is_speaking() or getattr(self, "_is_processing_ai", False):
-            print(f"[Main] Ignoring speech transcript during active response: '{cleaned}'")
-            return
+        # Real-time duplex barge-in: If user speaks while JARVIS is actively speaking,
+        # immediately halt active audio speech playback so the user's interruption takes precedence.
+        if voice_engine.is_speaking():
+            print(f"[Main] Real-time duplex barge-in: user spoke while JARVIS was speaking ('{cleaned}').")
+            voice_engine._on_barge_in_detected()
+        elif getattr(self, "_is_processing_ai", False):
+            print(f"[Main] User interjected while AI is processing: '{cleaned}'")
+            # Invalidate older processing turn so new prompt takes over
+            self._ai_worker_generation = getattr(self, "_ai_worker_generation", 0) + 1
 
         # Romanized purely for what the user SEES — casual Hinglish spelling
         # (tum kya kar rahe ho) reads far more naturally here than formal
@@ -566,6 +620,9 @@ class JarvisMainWindow(QMainWindow):
         tool to use, THEN ToolExecutionWorker runs it. There is no path that
         executes a tool without going through this selection step first.
         """
+        # User supplied input: reset 15-minute voice inactivity countdown
+        self._reset_voice_inactivity_timer()
+
         # Auto-fix confirmation takes priority over normal LLM routing: if
         # JARVIS just asked "Should I ask Claude to fix this?", THIS turn's
         # reply must be interpreted as answering that question, not sent
@@ -644,11 +701,16 @@ class JarvisMainWindow(QMainWindow):
             # here manually.
             self._is_processing_ai = False
             if config.ALWAYS_LISTEN:
+                voice_engine.resume_listening()
                 self.title_bar.set_capsule_status("Listening...", "LISTENING")
                 self.page_home.set_ai_state(AICoreState.LISTENING)
+                self.page_home.set_mic_active(True)
+                self.page_home.set_listening_hint()
+                self._reset_voice_inactivity_timer()
             else:
                 self.title_bar.set_capsule_status("System Online", "ONLINE")
                 self.page_home.set_ai_state(AICoreState.IDLE)
+                self.page_home.set_mic_active(False)
 
         if response.tool_calls:
             if hasattr(self, "_tool_worker") and self._tool_worker and self._tool_worker.isRunning():
@@ -785,11 +847,17 @@ class JarvisMainWindow(QMainWindow):
             self.page_home.set_ai_state(AICoreState.LISTENING)
             self.page_home.set_mic_active(True)
             self.page_home.set_live_speech(greeting, is_user=False)
+            self._reset_voice_inactivity_timer()
             voice_engine.speak(greeting)
 
 
     def closeEvent(self, event):
         """Clean shutdown of background threads."""
+        try:
+            if hasattr(self, "_voice_inactivity_timer") and self._voice_inactivity_timer:
+                self._voice_inactivity_timer.stop()
+        except Exception:
+            pass
         try:
             voice_engine.shutdown()
         except Exception:
@@ -811,10 +879,19 @@ class JarvisMainWindow(QMainWindow):
         except Exception:
             pass
         try:
-            # Let the TTS preload finish or bail out cleanly rather than racing
-            # interpreter shutdown against a half-loaded model.
+            # Let the TTS, LLM, and STT preload workers finish cleanly rather than racing interpreter shutdown
             if hasattr(self, "_tts_preload_worker") and self._tts_preload_worker and self._tts_preload_worker.isRunning():
                 self._tts_preload_worker.wait(2000)
+        except Exception:
+            pass
+        try:
+            if hasattr(self, "_llm_warmup_worker") and self._llm_warmup_worker and self._llm_warmup_worker.isRunning():
+                self._llm_warmup_worker.wait(1000)
+        except Exception:
+            pass
+        try:
+            if hasattr(self, "_stt_preload_worker") and self._stt_preload_worker and self._stt_preload_worker.isRunning():
+                self._stt_preload_worker.wait(1500)
         except Exception:
             pass
         event.accept()

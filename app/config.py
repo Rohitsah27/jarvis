@@ -59,7 +59,8 @@ class AppConfig:
     # explicit opt-in, not the out-of-box behavior. Toggle it on in
     # Settings > Voice if you want always-on listening; the UI clearly
     # discloses what turning it on means.
-    ALWAYS_LISTEN: bool = False                       # Opt-in: continuously listen without a wake word
+    ALWAYS_LISTEN: bool = True                        # Automatically listen continuously; standby after 15m inactivity
+    VOICE_INACTIVITY_TIMEOUT_MINUTES: int = 15        # Inactivity timeout (minutes) before falling back to System Online
     VOICE_CONFIRMATION_BEFORE_EXECUTE: bool = True     # Talk first and confirm command via voice before executing
     SPEAK_RESPONSES: bool = True                      # Vocalize responses through Windows speakers
     MIC_ENERGY_THRESHOLD: int = 75                    # Calibrated speech floor (speech: 80-350+, ambient silence: 0-35)
@@ -72,7 +73,7 @@ class AppConfig:
     # every silent frame, only once silence has been continuous for this
     # long, which already gives the "merge short pauses" behavior asked
     # for without needing a separate buffering layer).
-    STT_PAUSE_TIMEOUT_SECONDS: float = 2.0
+    STT_PAUSE_TIMEOUT_SECONDS: float = 1.0
     MIC_PHRASE_LIMIT: int = 15                        # Max seconds per utterance (raised from 7 now that pauses
                                                         # up to STT_PAUSE_TIMEOUT_SECONDS no longer end it early —
                                                         # a real multi-clause sentence with a couple of pauses could
@@ -88,16 +89,9 @@ class AppConfig:
                                                         # if disk space allows; lower it if it doesn't.
     STT_WHISPER_DEVICE: str = "cpu"                   # "cpu" or "cuda" (only if you have a compatible NVIDIA GPU + CUDA)
     STT_WHISPER_COMPUTE_TYPE: str = "int8"            # Quantized for CPU speed/memory; use "float16" only with STT_WHISPER_DEVICE="cuda"
-    BARGE_IN_ENABLED: bool = False                    # Allow speaking over JARVIS to interrupt it mid-reply.
-                                                        # Off by default: in testing, energy-threshold barge-in
-                                                        # false-triggered on nearly every reply (ambient noise/own
-                                                        # voice bleed crossed the bar), cutting JARVIS off mid-
-                                                        # sentence. The VAD gate added alongside this makes it much
-                                                        # more reliable if you want to turn it back on.
-    BARGE_IN_ENERGY_MULTIPLIER: float = 1.6           # How much louder than normal speech is required to interrupt
-                                                        # (higher = fewer false triggers from JARVIS's own voice
-                                                        # bleeding into the mic through speakers, but requires
-                                                        # speaking up more to interrupt; headphones avoid this tradeoff)
+    BARGE_IN_ENABLED: bool = True                     # Allow speaking over JARVIS to interrupt it mid-reply (Real-Time Duplex)
+    BARGE_IN_ENERGY_MULTIPLIER: float = 1.4           # Energy multiplier for interruption threshold (with WebRTC VAD verification)
+    ACTIVE_CONVERSATION_HISTORY_TURNS: int = 16       # Number of previous messages sent to LLM for rich context continuity
 
     # Optional PIN to a specific playback device name (substring match) for
     # JARVIS's own speech, regardless of whatever Windows currently has as
@@ -135,6 +129,7 @@ class AppConfig:
     SAPI_VOICE_RATE: int = 1                          # Voice speed cadence (-10 to 10)
     SAPI_VOICE_VOLUME: int = 100                      # Volume (0 to 100)
     DEFAULT_VOICE_MODEL: str = "Microsoft Edge TTS (hi-IN-SwaraNeural / Swara Hindi)"
+    TTS_LOCAL_API_URL: str = ""                       # Optional local TTS server URL
 
     
     # LLM Cloud API Keys
@@ -288,6 +283,10 @@ class AppConfig:
                 "STT_WHISPER_DEVICE": self.STT_WHISPER_DEVICE,
                 "STT_WHISPER_COMPUTE_TYPE": self.STT_WHISPER_COMPUTE_TYPE,
                 "ALWAYS_LISTEN": self.ALWAYS_LISTEN,
+                "BARGE_IN_ENABLED": self.BARGE_IN_ENABLED,
+                "ACTIVE_CONVERSATION_HISTORY_TURNS": self.ACTIVE_CONVERSATION_HISTORY_TURNS,
+                "VOICE_INACTIVITY_TIMEOUT_MINUTES": self.VOICE_INACTIVITY_TIMEOUT_MINUTES,
+                "TTS_LOCAL_API_URL": self.TTS_LOCAL_API_URL,
                 "SCREEN_ANALYSIS_CLOUD_CONSENT": self.SCREEN_ANALYSIS_CLOUD_CONSENT,
                 "MAX_CONVERSATION_HISTORY_MESSAGES": self.MAX_CONVERSATION_HISTORY_MESSAGES,
                 "LEARNING_MEMORY_MAX_ENTRIES": self.LEARNING_MEMORY_MAX_ENTRIES,

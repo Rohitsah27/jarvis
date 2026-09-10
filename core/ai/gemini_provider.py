@@ -55,7 +55,8 @@ class GeminiProvider(BaseAIProvider):
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{self._model}:generateContent?key={key}"
             contents = []
             if conversation_history:
-                for msg in conversation_history[-6:]:
+                history_limit = max(6, int(getattr(config, "ACTIVE_CONVERSATION_HISTORY_TURNS", 16)))
+                for msg in conversation_history[-history_limit:]:
                     role = "model" if msg.role == "assistant" else "user"
                     contents.append({"role": role, "parts": [{"text": msg.content}]})
             contents.append({"role": "user", "parts": [{"text": prompt}]})

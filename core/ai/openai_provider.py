@@ -57,7 +57,8 @@ class OpenAIProvider(BaseAIProvider):
             messages = [{"role": "system", "content": self._build_system_prompt()}]
 
             if conversation_history:
-                for msg in conversation_history[-6:]:
+                history_limit = max(6, int(getattr(config, "ACTIVE_CONVERSATION_HISTORY_TURNS", 16)))
+                for msg in conversation_history[-history_limit:]:
                     role = "assistant" if msg.role == "assistant" else "user"
                     messages.append({"role": role, "content": msg.content})
             messages.append({"role": "user", "content": prompt})

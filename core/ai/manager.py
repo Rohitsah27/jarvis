@@ -84,6 +84,19 @@ class AIProviderManager:
     def clear_history(self) -> None:
         self._history.clear()
 
+    def mark_last_assistant_message_interrupted(self) -> None:
+        """Marks the latest assistant response as interrupted mid-sentence by the user."""
+        for msg in reversed(self._history):
+            if msg.role == "assistant":
+                if "[User interrupted" not in msg.content:
+                    msg.content = f"{msg.content} ... [User interrupted mid-speech here to ask a new query/side question]"
+                break
+
+    def record_interaction(self, user_prompt: str, assistant_response: str) -> None:
+        """Records a completed interaction (e.g. fast-path commands) into conversation history."""
+        self.add_message("user", user_prompt)
+        self.add_message("assistant", assistant_response)
+
     def ask(self, prompt: str) -> AIResponse:
         self.add_message("user", prompt)
         response = self.active_provider.generate_response(prompt, self._history)

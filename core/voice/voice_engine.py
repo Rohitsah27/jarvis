@@ -680,10 +680,12 @@ class ContinuousMicListenerThread(QThread):
         self._barge_in_armed = False
         self.recognizer = sr.Recognizer() if (HAS_SR and sr) else None
         if self.recognizer:
-            self.recognizer.energy_threshold = config.MIC_ENERGY_THRESHOLD
-            self.recognizer.dynamic_energy_threshold = False
-            self.recognizer.pause_threshold = config.STT_PAUSE_TIMEOUT_SECONDS
-            self.recognizer.non_speaking_duration = 0.4
+            self.recognizer.energy_threshold = float(getattr(config, "MIC_ENERGY_THRESHOLD", 75))
+            self.recognizer.dynamic_energy_threshold = True
+            self.recognizer.dynamic_energy_adjustment_damping = 0.15
+            self.recognizer.dynamic_energy_ratio = 1.5
+            self.recognizer.pause_threshold = float(getattr(config, "STT_PAUSE_TIMEOUT_SECONDS", 1.0))
+            self.recognizer.non_speaking_duration = 0.3
 
     def pause_listening(self):
         self._paused = True
@@ -711,11 +713,9 @@ class ContinuousMicListenerThread(QThread):
         an STT API call or flickering the UI into 'Processing' state on it.
         The plain RMS energy threshold that gates recognizer.listen() only
         asks "was this loud enough?" — a fan, a door, background chatter, or
-        a cough are all "loud enough" but aren't speech, which is exactly why
-        JARVIS kept lighting up on every ambient sound in a noisy room. VAD
-        asks "does this actually sound like a human voice?" frame by frame.
+        a cough are all "loud enough" but aren't speech.
         Fails OPEN (treats it as speech) on any error, so a VAD hiccup never
-        blocks genuine commands — worst case it behaves like before.
+        blocks genuine commands.
         """
         if not HAS_VAD:
             return True
@@ -733,7 +733,8 @@ class ContinuousMicListenerThread(QThread):
                     speech += 1
             if total == 0:
                 return True  # too short to judge — don't block it
-            return (speech / total) >= 0.2
+            # Pass if at least 8 frames (~240ms) contain human speech, or speech represents >= 8% of audio
+            return speech >= 8 or (speech / total) >= 0.08
         except Exception as e:
             print(f"[VoiceEngine] VAD check warning (failing open): {e}")
             return True
@@ -763,15 +764,16 @@ class ContinuousMicListenerThread(QThread):
 
         try:
             with mic as source:
-                # Dynamic ambient calibration: ambient * 1.35 with floor of config.MIC_ENERGY_THRESHOLD (75) and ceiling of 180
+                # Dynamic ambient calibration: adapt to room noise with floor
                 try:
-                    self.recognizer.adjust_for_ambient_noise(source, duration=0.6)
+                    self.recognizer.adjust_for_ambient_noise(source, duration=0.8)
                     measured = self.recognizer.energy_threshold
-                    self.recognizer.energy_threshold = min(max(float(config.MIC_ENERGY_THRESHOLD), measured * 1.35), 180.0)
+                    floor = float(getattr(config, "MIC_ENERGY_THRESHOLD", 75))
+                    self.recognizer.energy_threshold = max(floor, measured * 1.25)
                 except Exception:
-                    self.recognizer.energy_threshold = float(config.MIC_ENERGY_THRESHOLD)
+                    self.recognizer.energy_threshold = float(getattr(config, "MIC_ENERGY_THRESHOLD", 75))
 
-                print(f"[VoiceEngine] Microphone listening active (Threshold: {self.recognizer.energy_threshold:.1f})")
+                print(f"[VoiceEngine] Microphone listening active (Threshold: {self.recognizer.energy_threshold:.1f}, Dynamic: {self.recognizer.dynamic_energy_threshold})")
 
                 def _on_rms_chunk(rms: int):
                     if not self._running or self._paused:
@@ -810,10 +812,24 @@ class ContinuousMicListenerThread(QThread):
                         base_threshold = self.recognizer.energy_threshold
                         try:
                             self.recognizer.energy_threshold = base_threshold * config.BARGE_IN_ENERGY_MULTIPLIER
-                            barge_audio = self.recognizer.listen(source, timeout=0.4, phrase_time_limit=3.0)
+                            barge_audio = self.recognizer.listen(source, timeout=0.4, phrase_time_limit=4.0)
                             if self._barge_in_armed and self._paused and self._looks_like_speech(barge_audio):
-                                print("[VoiceEngine] Barge-in detected — interrupting current speech.")
+                                print("[VoiceEngine] Barge-in detected — interrupting speech & capturing interruption.")
+                                self._barge_in_armed = False
                                 self.barge_in_detected.emit()
+                                # Immediately transcribe the captured barge-in audio so the user's first words are not lost
+                                self.speech_detected.emit()
+                                result = stt_engine.transcribe(barge_audio, self.recognizer)
+                                if result.success and result.text and result.text.strip():
+                                    recognized_text = result.text.strip()
+                                    print(f"[VoiceEngine] Heard user barge-in speech: '{recognized_text}'")
+                                    self.amplitude_tick.emit(0.0)
+                                    self._paused = True
+                                    self.transcript_ready.emit(recognized_text)
+                                else:
+                                    # Speech fragment was cut or continued; resume normal continuous listening
+                                    self._paused = False
+                                    self.listening_resumed.emit()
                         except sr.WaitTimeoutError:
                             pass
                         except Exception:
@@ -1147,7 +1163,7 @@ class VoiceEngine(QObject):
 
     def _on_mic_transcript_ready(self, text: str):
         self._watchdog.stop()
-        self.set_state(VoiceState.READY)
+        # Maintain PROCESSING state so UI does not flash "System Online" while routing to AI
         self.transcript_ready.emit(text)
 
     def _on_mic_listening_resumed(self):

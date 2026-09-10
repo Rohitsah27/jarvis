@@ -181,6 +181,8 @@ class JarvisSplashScreen(QWidget):
 
     def _on_fade_finished(self):
         self._timer.stop()
+        if self._preload_worker and self._preload_worker.isRunning():
+            self._preload_worker.wait(1500)
         self.loading_finished.emit()
         self.close()
         self.deleteLater()
