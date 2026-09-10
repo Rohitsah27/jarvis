@@ -3,7 +3,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEd
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from ui.styles.theme import theme
-from core.tools.tool_manager import tool_manager
+from ui.components.tool_runner import run_tool_async
 
 
 class BrowserPage(QWidget):
@@ -80,7 +80,7 @@ class BrowserPage(QWidget):
                 f"color: #d0e8ff; border-radius: 6px; padding: 8px; font-weight: 500; text-align: center; }}"
                 f"QPushButton:hover {{ background: rgba(0, 210, 255, 0.22); color: #00d2ff; border-color: {theme.CYAN_ACCENT}; }}"
             )
-            t_btn.clicked.connect(lambda _, act=action: tool_manager.execute_tool("control_tabs", action=act))
+            t_btn.clicked.connect(lambda _, act=action: run_tool_async(self, "control_tabs", action=act))
             t_row.addWidget(t_btn)
 
         t_layout.addLayout(t_row)
@@ -112,7 +112,7 @@ class BrowserPage(QWidget):
                 "QPushButton { text-align: left; background: transparent; border: none; color: #8da3c0; padding: 6px; }"
                 "QPushButton:hover { color: #00d2ff; background: rgba(0, 210, 255, 0.08); border-radius: 4px; }"
             )
-            btn.clicked.connect(lambda _, u=url: tool_manager.execute_tool("open_browser", url=u))
+            btn.clicked.connect(lambda _, u=url: run_tool_async(self, "open_browser", url=u))
             b_layout.addWidget(btn)
 
         layout.addWidget(b_frame)
@@ -122,6 +122,6 @@ class BrowserPage(QWidget):
         text = self.url_input.text().strip()
         if text:
             if "." in text and " " not in text:
-                tool_manager.execute_tool("open_browser", url=text)
+                run_tool_async(self, "open_browser", url=text)
             else:
-                tool_manager.execute_tool("open_browser", query=text)
+                run_tool_async(self, "open_browser", query=text)

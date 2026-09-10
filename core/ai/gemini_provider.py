@@ -85,11 +85,13 @@ class GeminiProvider(BaseAIProvider):
                 raw_content = data["candidates"][0]["content"]["parts"][0]["text"]
                 latency = (time.perf_counter() - start_t) * 1000.0
 
+                # The real model's own tool-call decision is final — it is
+                # never replaced by asking the offline regex brain for a
+                # second opinion. That override used to let an action
+                # execute that neither the human nor the selected AI model
+                # actually approved: if Gemini's response contains no
+                # [ACTION:...] tag, that means "no tool", full stop.
                 clean_text, tool_calls = self._parse_action_tag(raw_content)
-                if not tool_calls:
-                    sim = jarvis_brain.think(prompt)
-                    if sim.tool_calls:
-                        tool_calls = sim.tool_calls
 
                 return AIResponse(
                     content=clean_text,

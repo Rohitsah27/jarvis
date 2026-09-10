@@ -9,7 +9,27 @@ faster-whisper>=1.0.0      # Local offline STT (primary engine) — package itse
                            # (~484MB for the default "small" size, see STT_WHISPER_MODEL_SIZE in config)
 pycaw>=20240210            # Per-app/default audio device diagnostics + device-targeted TTS playback
 comtypes>=1.4.0            # COM bindings required by pycaw
+numpy>=1.24.0              # Used directly (unguarded) by core/voice/stt_engine.py, kokoro_engine.py,
+                           # voice_engine.py for audio sample conversion
+requests>=2.31.0           # Used by core/ai/groq_provider.py (the default/fallback AI provider) — was
+                           # previously imported but NOT declared here, so a fresh install crashed with
+                           # ModuleNotFoundError before the app could even show a window
+edge-tts>=6.1.12            # Default neural TTS engine (Microsoft Swara Hindi India & Azure neural voices)
+kokoro-onnx>=0.4.0         # Default local TTS engine (config.TTS_ENGINE="kokoro") — was previously
+                           # imported but not declared; the app ran, but the default voice silently
+                           # produced no audio on a fresh install
+soundfile>=0.12.0          # Required by kokoro-onnx for audio I/O
+Pillow>=10.0.0             # Downscales/compresses screenshots before cloud vision upload
+                           # (core/system/screen_analyzer.py) — functions without it via a raw-file
+                           # fallback, but that sends full-resolution uncompressed images
+indic_transliteration>=2.3.0  # Devanagari -> Hinglish transliteration for displaying recognized
+                               # Hindi speech in familiar romanized spelling (core/voice/transcript_processor.py)
 
 # Optional: XTTS-v2 high-quality voice mode (Settings > Active Voice Engine).
 # Heavy (~3GB incl. PyTorch) and CPU inference is slow; not required for core app.
 # coqui-tts>=0.27.0
+
+# Optional: pygame is used as one fallback link in the Windows SAPI TTS
+# playback chain (core/voice/voice_engine.py) — guarded by try/except, the
+# app runs fine without it and falls through to the next playback method.
+# pygame>=2.5.0

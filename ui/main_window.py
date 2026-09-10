@@ -46,6 +46,8 @@ from core.system.monitor import SystemMonitorWorker, SystemTelemetry
 from core.telemetry import now as telemetry_now, log_stage
 from core.observability.observer import observer
 from core.observability.auto_fix import auto_fix_manager, AutoFixWorker
+from core.tools.confirmation import confirmation_service, ConfirmationRequest
+from ui.components.confirmation_dialog import ToolConfirmationDialog
 
 # Hard cap on how much text is ever spoken aloud in one reply. Full detail
 # still shows in the chat UI — this only bounds what goes to TTS, so a long
@@ -250,30 +252,16 @@ class JarvisMainWindow(QMainWindow):
         self._wire_events()
         self._center_on_screen()
 
-        if self._splash:
-            self._splash.set_progress(92, "STARTING BACKGROUND NEURAL WORKERS...")
+        if not self._splash:
+            # When running without splash screen (e.g. tests), start standard background preloaders
+            self._tts_preload_worker = TTSPreloadWorker(self)
+            self._tts_preload_worker.start()
 
-        # Warm up the TTS model immediately so the first reply isn't slowed down
-        # by a one-time model load.
-        self._tts_preload_worker = TTSPreloadWorker(self)
-        self._tts_preload_worker.start()
+            self._llm_warmup_worker = LLMWarmupWorker(self)
+            self._llm_warmup_worker.start()
 
-        # Warm up the LLM provider's HTTPS connection the same way, so the
-        # first real command doesn't pay a TCP+TLS handshake on top of
-        # everything else.
-        self._llm_warmup_worker = LLMWarmupWorker(self)
-        self._llm_warmup_worker.start()
-
-        # Warm up Faster-Whisper (STT) the same way — the mic thread starts
-        # listening immediately (VoiceEngine's constructor runs at import
-        # time), so this is racing the user's first utterance rather than
-        # strictly guaranteeing a warm model, but it still covers the
-        # common case of at least a few seconds before anyone speaks.
-        self._stt_preload_worker = STTPreloadWorker(self)
-        self._stt_preload_worker.start()
-
-        if self._splash:
-            self._splash.set_progress(100, "ALL SYSTEMS OPERATIONAL. READY.")
+            self._stt_preload_worker = STTPreloadWorker(self)
+            self._stt_preload_worker.start()
 
     def _init_ui(self):
         # Root central widget with animated cybernetic HUD background effect
@@ -388,6 +376,42 @@ class JarvisMainWindow(QMainWindow):
         )
         tool_manager.tool_finished.connect(self._on_tool_finished)
 
+        # The real confirmation gate's UI half: whenever ANY tool call needs
+        # a human decision (from any calling thread — see
+        # core/tools/confirmation.py for why this connection is safe
+        # cross-thread), show a real modal dialog and report the answer
+        # back. Without this connection, ConfirmationService has no
+        # listener at all and every CONFIRMATION_REQUIRED/HIGH_RISK tool
+        # call is denied by default (fail-closed, not fail-open).
+        confirmation_service.attach_handler(self._on_confirmation_requested)
+
+    def _on_confirmation_requested(self, request: ConfirmationRequest):
+        """
+        Runs on the GUI thread (Qt queues delivery here automatically when
+        the request originated on a background QThread). Shows a real
+        modal Allow/Deny dialog and reports the decision back to
+        ConfirmationService — this IS the human decision the calling
+        thread is blocked waiting for.
+        """
+        self.page_system.activity_log.log_event(
+            f"Confirmation requested: {request.tool_name} ({request.risk_level} risk)", "SEC"
+        )
+        try:
+            dlg = ToolConfirmationDialog(request, self)
+            dlg.exec()
+            approved = dlg.approved
+        except Exception:
+            # A crash in the dialog itself must still resolve the pending
+            # request (fail closed) rather than leave the calling thread
+            # blocked until ConfirmationService's own timeout.
+            approved = False
+        confirmation_service.resolve(
+            request.request_id, approved, reason="user_approved" if approved else "user_denied"
+        )
+        self.page_system.activity_log.log_event(
+            f"Confirmation {'approved' if approved else 'denied'}: {request.tool_name}", "SEC"
+        )
+
     def _center_on_screen(self):
         screen = QGuiApplication.primaryScreen()
         if screen:
@@ -432,7 +456,20 @@ class JarvisMainWindow(QMainWindow):
             # Single anchor for the WHOLE interaction (mic -> STT -> agent ->
             # tool -> TTS), so "total latency" is honest about when the user
             # actually started speaking, not just when text became available.
-            if not getattr(self, "_pipeline_t0", None):
+            # PROCESSING is entered twice per turn: once when the mic detects
+            # NEW speech (this must start a fresh anchor), and again when TTS
+            # begins synthesizing the reply (voice_engine.speak() holds
+            # PROCESSING until audio starts — this must NOT reset the anchor,
+            # or "total latency" would only ever measure the TTS portion).
+            # _is_processing_ai is True for exactly that second, reused entry
+            # (set in _handle_user_prompt, cleared once the turn fully
+            # completes) — gating on it, instead of "only if unset", is what
+            # actually distinguishes the two. The previous "only if unset"
+            # check set the anchor once for the entire app session and then
+            # never again, so every later utterance's STT_RESULT/TOTAL_LATENCY
+            # was measured against the FIRST utterance ever, not its own turn
+            # — that's why those numbers grew into the minutes over a session.
+            if not getattr(self, "_is_processing_ai", False):
                 self._pipeline_t0 = telemetry_now()
                 log_stage("MIC_INPUT_START", self._pipeline_t0)
             self.title_bar.set_capsule_status("Thinking...", "PROCESSING")
@@ -443,6 +480,25 @@ class JarvisMainWindow(QMainWindow):
             self.title_bar.set_capsule_status("Vocalizing...", "SPEAKING")
             self.page_home.set_ai_state(AICoreState.SPEAKING)
             self.page_system.activity_log.log_event("Audio vocalization active", "VOICE")
+        elif state == VoiceState.MIC_UNAVAILABLE:
+            # Previously there was no such state — a dead mic thread left
+            # the UI stuck showing "Listening..." forever. This is a clear,
+            # distinct, recoverable state: click the mic button to retry.
+            self.title_bar.set_capsule_status("Mic Unavailable", "WARN")
+            self.page_home.set_ai_state(AICoreState.IDLE)
+            self.page_home.set_mic_active(False)
+            self.page_home.set_mic_unavailable_hint()
+            self.page_system.activity_log.log_event(
+                "Microphone unavailable — click the mic button to retry", "WARN"
+            )
+            try:
+                observer.record_issue(
+                    "mic_unavailable",
+                    summary="Microphone became unavailable (disconnected, permission revoked, or listener crashed)",
+                    source="voice_engine",
+                )
+            except Exception:
+                pass
         else:
             self.title_bar.set_capsule_status("System Online", "ONLINE")
             self.page_home.set_ai_state(AICoreState.IDLE)

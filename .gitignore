@@ -20,15 +20,39 @@ logs/
 data/*.json
 !data/.gitkeep
 
-# Sensitive configuration & local keys
+# Sensitive configuration & local keys — includes atomic-write temp files
+# (app/config.py, core/observability/task_queue.py, learning_memory.py all
+# write via a *.tmp file before an atomic rename) and corrupted-file
+# backups preserved for diagnosis rather than silently discarded.
 config.json
+config.json.tmp
+*.corrupt.*.json
 .env
 .env.*
 secrets.json
 
-# Test output artifacts
+# Test output artifacts (screenshots/audio captured by the manual/visual
+# scripts under dev_scripts/, and any real tests that render offscreen)
 tests/*.png
 tests/*.wav
+dev_scripts/*.png
+dev_scripts/*.wav
+
+# Test/lint tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# Build/packaging output
+build/
+dist/
+*.egg-info/
+
+# Windows/git-bash artifact: an accidental `> nul` redirect on Windows
+# creates a literal file named `nul` instead of discarding output.
+nul
 
 # Editor & OS files
 .vscode/

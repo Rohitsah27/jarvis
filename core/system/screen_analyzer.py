@@ -277,13 +277,23 @@ class ScreenAnalyzer:
 
     @staticmethod
     def capture_screenshot(save_path: Optional[str] = None) -> Optional[str]:
-        """Captures a full screenshot of the primary screen."""
+        """
+        Captures a full screenshot of the primary screen.
+
+        Used internally by analyze_screen()/click_screen — these are
+        implementation details of a vision call, not something the user
+        asked to "save a screenshot," so unlike TakeScreenshotTool (which
+        explicitly saves to Desktop because the user asked for a keepable
+        file), this defaults to the OS temp directory with a unique name.
+        Callers that only need the file for the duration of one vision
+        call MUST delete it afterward (see analyze_screen()'s finally
+        block) — capture_screenshot() itself does not delete anything, it
+        only chooses a location that isn't the user's visible Desktop.
+        """
         if not save_path:
-            desktop = Path(os.path.expanduser("~")) / "Desktop"
-            if not desktop.exists():
-                desktop = Path(os.path.expanduser("~"))
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            save_path = str(desktop / f"JARVIS_Screen_{timestamp}.png")
+            import tempfile
+            import uuid
+            save_path = str(Path(tempfile.gettempdir()) / f"jarvis_vision_{uuid.uuid4().hex}.png")
 
         try:
             if HAS_QT_GUI and QGuiApplication.primaryScreen():
@@ -305,13 +315,33 @@ class ScreenAnalyzer:
 
         return None
 
+    @staticmethod
+    def _cleanup_screenshot(path: Optional[str]) -> None:
+        """Deletes a temp screenshot written by capture_screenshot(). Never
+        raises — this runs from a finally block and a cleanup failure must
+        not mask (or crash alongside) the real result of the vision call."""
+        if not path:
+            return
+        try:
+            p = Path(path)
+            if p.exists():
+                p.unlink()
+        except Exception as e:
+            print(f"[ScreenAnalyzer] Could not delete temp screenshot {path}: {e}")
+
     @classmethod
-    def analyze_screen(cls, user_query: Optional[str] = None) -> Dict[str, Any]:
+    def analyze_screen(cls, user_query: Optional[str] = None, allow_cloud: bool = True) -> Dict[str, Any]:
         """
         Deep analysis of the current screen:
         1. Identifies foreground active window & topic.
         2. Discovers all running/visible applications.
         3. Formulates a natural, conversational Hindi/English response answering user's question.
+
+        allow_cloud=False keeps everything local: no screenshot pixels are
+        ever sent to Gemini/OpenAI, and the answer comes from the
+        window-title heuristic below instead. The temp screenshot file
+        (wherever it ends up captured to) is always deleted before this
+        method returns, whether or not the cloud path was used.
         """
         fg = cls.get_foreground_window()
         visible_windows = cls.get_visible_windows()
@@ -356,28 +386,44 @@ class ScreenAnalyzer:
         if other_apps:
             bg_text = f" साथ ही बैकग्राउंड में {', '.join(other_apps)} भी खुले हुए हैं।"
 
-        # Real vision analysis: send the actual screenshot pixels to a vision LLM
-        # so JARVIS answers based on what is truly on screen, not a title guess.
-        answer = None
-        if screenshot_path:
-            answer = _query_screen_vision(screenshot_path, user_query or "")
+        try:
+            # Real vision analysis: send the actual screenshot pixels to a
+            # vision LLM so JARVIS answers based on what is truly on
+            # screen, not a title guess — but ONLY with explicit consent
+            # (allow_cloud=True). Without consent, or if the call fails,
+            # this falls back to the local window-title heuristic below —
+            # no pixels leave the machine in that case.
+            answer = None
+            if allow_cloud and screenshot_path:
+                answer = _query_screen_vision(screenshot_path, user_query or "")
 
-        if not answer:
-            # Fallback heuristic (no vision API key configured, or the call failed)
-            q_lower = (user_query or "").lower()
-            if "error" in q_lower or "समस्या" in q_lower or "दिक्कत" in q_lower:
-                answer = f"सर, मैंने आपकी स्क्रीन को स्कैन कर लिया है। अभी एक्टिव विंडो '{fg_title}' है। स्क्रीन पर कोई क्रिटिकल सिस्टम एरर नहीं दिख रहा है, {app_context}"
-            elif "open chrome" in q_lower or "क्रोम" in q_lower:
-                answer = f"सर, गूगल क्रोम खोला गया है और आपकी स्क्रीन पर एक्टिव है। स्क्रीन पर अभी {app_context}{bg_text}"
-            else:
-                answer = f"सर, आपकी स्क्रीन पर अभी {app_context}{bg_text} मैंने आपकी स्क्रीन का स्नैपशॉट भी ले लिया है।"
+            if not answer:
+                q_lower = (user_query or "").lower()
+                if "error" in q_lower or "समस्या" in q_lower or "दिक्कत" in q_lower:
+                    answer = f"सर, मैंने आपकी स्क्रीन को स्कैन कर लिया है। अभी एक्टिव विंडो '{fg_title}' है। स्क्रीन पर कोई क्रिटिकल सिस्टम एरर नहीं दिख रहा है, {app_context}"
+                elif "open chrome" in q_lower or "क्रोम" in q_lower:
+                    answer = f"सर, गूगल क्रोम खोला गया है और आपकी स्क्रीन पर एक्टिव है। स्क्रीन पर अभी {app_context}{bg_text}"
+                elif not allow_cloud:
+                    answer = (
+                        f"सर, क्लाउड स्क्रीन एनालिसिस की अनुमति नहीं है, इसलिए मैं सिर्फ इतना बता सकता हूँ: "
+                        f"{app_context}{bg_text} विस्तृत विश्लेषण के लिए Settings > Privacy में इसे चालू करें।"
+                    )
+                else:
+                    answer = f"सर, आपकी स्क्रीन पर अभी {app_context}{bg_text}"
 
-        return {
-            "answer": answer,
-            "foreground_window": fg,
-            "visible_windows": visible_windows,
-            "screenshot_path": screenshot_path,
-        }
+            return {
+                "answer": answer,
+                "foreground_window": fg,
+                "visible_windows": visible_windows,
+                # Not returned as a persisted artifact — the file itself is
+                # deleted in the finally block below regardless of whether
+                # this dict is inspected. Kept in the return value only for
+                # any caller wanting to know a screenshot WAS captured this
+                # call, not as a usable path.
+                "screenshot_path": None,
+            }
+        finally:
+            cls._cleanup_screenshot(screenshot_path)
 
 
 # Global singleton

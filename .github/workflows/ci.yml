@@ -1,0 +1,67 @@
+name: CI
+
+# JARVIS is a Windows-only desktop app (pywin32, pycaw, ctypes.windll,
+# win32com throughout core/voice/* and core/tools/*), so this runs on
+# windows-latest, not the usual ubuntu-latest default.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # This is the fresh-install verification called for by the audit —
+      # a prior release shipped with `requests` (used by the default Groq
+      # provider) and `kokoro_onnx`/`soundfile` (the default TTS engine)
+      # imported in code but missing from requirements.txt, so a clean
+      # install crashed with ModuleNotFoundError before the app could even
+      # show a window. This step, run in a fresh venv-equivalent runner
+      # with no pre-existing global packages, is what would have caught
+      # that immediately.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-mock ruff
+
+      # Import-time smoke test: every module the app actually starts with
+      # must import cleanly with only what's in requirements.txt — no
+      # reliance on anything happening to be globally installed.
+      - name: Verify imports (fresh-install smoke test)
+        run: |
+          python -c "import app.config; import core.ai; import core.voice; import core.tools; import core.system; import core.observability; import ui.styles; import ui.components; import ui.pages; print('All modules import cleanly.')"
+
+      # Scoped to genuine-bug rules (undefined names, redefinitions,
+      # duplicate/unreachable code) rather than the full default style
+      # ruleset — the codebase carries pre-existing style debt (unused
+      # imports, import ordering) across files this fix pass didn't touch,
+      # and failing CI on all of that would be noise unrelated to any
+      # actual regression. Broader style cleanup is tracked separately,
+      # not a CI gate.
+      - name: Lint (correctness rules only)
+        run: |
+          ruff check --select F821,F822,F823,F811,F701,F702,F706,F707 app/ core/ ui/ tests/
+
+      - name: Run test suite
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          pytest tests/ -v --tb=short
+
+      - name: Run legacy regression suite (standalone entrypoint)
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python tests/test_components.py

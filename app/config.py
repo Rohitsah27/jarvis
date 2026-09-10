@@ -1,6 +1,7 @@
 """
 Application configuration and global constants for JARVIS.
 """
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -40,7 +41,6 @@ class AppConfig:
     # here maps to one distinct, real backend.
     AVAILABLE_PROVIDERS: tuple = (
         "Groq Cloud (Free LPU / 300 t/s)",
-        "Google Gemini (2.0 Flash / Live API)",
         "Google Gemini (Flash-Lite / Fast)",
         "OpenAI GPT-4o (Live API)",
         "OpenAI GPT-4o Mini",
@@ -52,7 +52,14 @@ class AppConfig:
     
     # Voice Settings
     VOICE_ENABLED: bool = True
-    ALWAYS_LISTEN: bool = True                        # Automatically listen continuously on launch
+    # This app has no wake-word/keyword-spotting stage — when this is True,
+    # the microphone is transcribed and reasoned about CONTINUOUSLY the
+    # whole time JARVIS is running, with no trigger phrase required. That
+    # is a real, materially-privacy-relevant default and must be an
+    # explicit opt-in, not the out-of-box behavior. Toggle it on in
+    # Settings > Voice if you want always-on listening; the UI clearly
+    # discloses what turning it on means.
+    ALWAYS_LISTEN: bool = False                       # Opt-in: continuously listen without a wake word
     VOICE_CONFIRMATION_BEFORE_EXECUTE: bool = True     # Talk first and confirm command via voice before executing
     SPEAK_RESPONSES: bool = True                      # Vocalize responses through Windows speakers
     MIC_ENERGY_THRESHOLD: int = 75                    # Calibrated speech floor (speech: 80-350+, ambient silence: 0-35)
@@ -103,7 +110,12 @@ class AppConfig:
     PREFERRED_TTS_OUTPUT_DEVICE: str = ""
 
     # Text-to-Speech Engine Configuration
-    TTS_ENGINE: str = "kokoro"                         # Primary: "kokoro" (Free/Local), "xtts" (Coqui XTTS-v2, High Quality/Slower), "elevenlabs" (Cloud), "sapi" (Native)
+    TTS_ENGINE: str = "edge"                           # Primary: "edge" (Microsoft Edge Neural TTS - Swara Hindi Default), "kokoro" (Free/Local), "xtts" (Coqui XTTS-v2), "elevenlabs" (Cloud), "sapi" (Native)
+    EDGE_TTS_VOICE: str = "hi-IN-SwaraNeural"          # Microsoft Swara - Natural Hindi India Female (Default)
+    EDGE_TTS_HINDI_VOICE: str = "hi-IN-SwaraNeural"    # Microsoft Swara Neural (Hindi India)
+    EDGE_TTS_ENGLISH_VOICE: str = "en-IN-NeerjaNeural" # Microsoft Neerja Neural (Indian English)
+    EDGE_TTS_RATE: str = "+0%"                         # Edge TTS speech rate modifier
+    EDGE_TTS_PITCH: str = "+0Hz"                       # Edge TTS speech pitch modifier
     KOKORO_ENGLISH_VOICE: str = "bm_george"           # Deep, authoritative British English (Classic JARVIS feel)
     KOKORO_HINDI_VOICE: str = "hm_omega"              # Deep resonant Hindi male
     FORCE_HINDI_ONLY_SPEECH: bool = True              # Speak everything with the Hindi voice — no English-segment voice switching
@@ -122,7 +134,7 @@ class AppConfig:
     # Windows SAPI Fallback Settings
     SAPI_VOICE_RATE: int = 1                          # Voice speed cadence (-10 to 10)
     SAPI_VOICE_VOLUME: int = 100                      # Volume (0 to 100)
-    DEFAULT_VOICE_MODEL: str = "Kokoro Neural TTS (bm_george / hm_omega)"
+    DEFAULT_VOICE_MODEL: str = "Microsoft Edge TTS (hi-IN-SwaraNeural / Swara Hindi)"
 
     
     # LLM Cloud API Keys
@@ -130,16 +142,48 @@ class AppConfig:
     GEMINI_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
+    # Anthropic periodically retires older dated model snapshots — kept
+    # configurable (rather than hardcoded in claude_provider.py) so a stale
+    # value can be corrected without a code change. Verify against
+    # https://docs.anthropic.com/en/docs/about-claude/models periodically.
+    ANTHROPIC_MODEL: str = "claude-3-7-sonnet-20250219"
 
     # Computer Control Settings
     COMPUTER_CONTROL_ACTIVE: bool = True
-    REQUIRE_CONFIRMATION_FOR_ACTIONS: bool = False
+    # REQUIRE_CONFIRMATION_FOR_ACTIONS was removed (used to default False and
+    # be the root cause of every CONFIRMATION_REQUIRED tool executing with
+    # zero human approval — the flag itself was never even wired to a real
+    # dialog). Confirmation is no longer optional or config-driven: it is a
+    # hard property of each tool's PermissionLevel, enforced inside
+    # core/tools/permission.py, and there is no setting anywhere that can
+    # disable it for a CONFIRMATION_REQUIRED or HIGH_RISK tool.
+
+    # First-run consent for analyze_screen's cloud vision upload path
+    # (Gemini/OpenAI). None = not asked yet (asked on first use); True =
+    # user allowed cloud screen analysis; False = user denied it (screen
+    # analysis still works locally, just never uploads pixels anywhere).
+    # Revocable from Settings > Privacy.
+    SCREEN_ANALYSIS_CLOUD_CONSENT: Optional[bool] = None
 
     # Runtime testing/debug mode: logs every pipeline stage (mic start, STT
     # result, agent intent, tool chosen, tool success/error, TTS start, total
     # latency) to console + logs/jarvis_debug.log. Costs ~nothing when off,
-    # negligible disk when on (log file capped at ~1MB).
+    # negligible disk when on (log file capped at ~1MB). Transcript text
+    # logged this way is truncated (~40-60 chars) and stays local, never
+    # transmitted anywhere — see core/telemetry.py.
     DEBUG_PIPELINE_LOGGING: bool = True
+
+    # Conversation history (core/ai/manager.py) is bounded to this many
+    # most-recent messages in memory — without a cap it grew for the entire
+    # process lifetime with no eviction. Each provider already only sends
+    # the last 6-10 messages per call, so this only bounds RAM use over a
+    # long session, not per-call token cost.
+    MAX_CONVERSATION_HISTORY_MESSAGES: int = 200
+
+    # core/voice/learning_memory.py's persisted vocabulary-correction store
+    # is bounded and expires — see that module for how these are enforced.
+    LEARNING_MEMORY_MAX_ENTRIES: int = 500
+    LEARNING_MEMORY_TTL_DAYS: int = 90
 
     # Timers & Intervals (ms)
     SYSTEM_POLL_INTERVAL_MS: int = 1500
@@ -147,24 +191,66 @@ class AppConfig:
     CLOCK_UPDATE_INTERVAL_MS: int = 1000
     WAVEFORM_INTERVAL_MS: int = 40
 
+    # Set to a human-readable message whenever the most recent load/save
+    # attempt failed, so callers (Settings page, health dashboard) can
+    # surface it instead of the user's changes silently vanishing with no
+    # explanation. None means the last attempt succeeded (or none has run
+    # yet).
+    last_persistence_error: Optional[str] = None
+
     def load_from_json(self):
         json_path = ROOT_DIR / "config.json"
-        if json_path.exists():
+        if not json_path.exists():
+            return
+        try:
+            import json
+            with open(json_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            # A corrupt/unreadable config.json must not silently discard
+            # the user's settings — logging.basicConfig may not be
+            # configured this early (config.py is one of the very first
+            # modules imported), so this also goes to stderr directly to
+            # guarantee visibility even before logging is set up.
+            msg = f"Could not read config.json ({type(e).__name__}: {e}) — using defaults for this session."
+            # Instance attribute, NOT AppConfig.last_persistence_error —
+            # this is a @dataclass field, so __init__ already gave this
+            # instance its own last_persistence_error=None that would
+            # otherwise permanently shadow a class-level assignment.
+            self.last_persistence_error = msg
             try:
-                import json
-                with open(json_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                for k, v in data.items():
-                    # v is checked against None rather than truthiness — a
-                    # falsy-but-meaningful saved value (mic device index 0,
-                    # an intentionally cleared "" API key) must still load;
-                    # only a genuinely absent/null field should be skipped.
-                    if hasattr(self, k) and v is not None:
-                        setattr(self, k, v)
+                import logging
+                logging.getLogger("jarvis.config").error(msg)
             except Exception:
                 pass
+            print(f"[Config] {msg}")
+            return
 
-    def save_to_json(self):
+        applied, skipped = 0, []
+        for k, v in data.items():
+            # v is checked against None rather than truthiness — a
+            # falsy-but-meaningful saved value (mic device index 0,
+            # an intentionally cleared "" API key) must still load;
+            # only a genuinely absent/null field should be skipped.
+            if hasattr(self, k) and v is not None:
+                try:
+                    setattr(self, k, v)
+                    applied += 1
+                except Exception:
+                    skipped.append(k)
+            elif not hasattr(self, k):
+                skipped.append(k)
+        if skipped:
+            # Not fatal — e.g. a field renamed/removed since this
+            # config.json was written — but worth knowing about rather
+            # than silently ignoring.
+            print(f"[Config] Ignored {len(skipped)} unrecognized/invalid saved field(s): {skipped}")
+
+    def save_to_json(self) -> bool:
+        """Returns True on success. On failure, sets last_persistence_error
+        to a human-readable message (never silently discards the failure)
+        and returns False — callers that show a UI (Settings page) should
+        check this and tell the user the save didn't happen."""
         json_path = ROOT_DIR / "config.json"
         try:
             import json
@@ -178,7 +264,13 @@ class AppConfig:
                 "GEMINI_API_KEY": self.GEMINI_API_KEY,
                 "OPENAI_API_KEY": self.OPENAI_API_KEY,
                 "ANTHROPIC_API_KEY": self.ANTHROPIC_API_KEY,
+                "ANTHROPIC_MODEL": self.ANTHROPIC_MODEL,
                 "TTS_ENGINE": self.TTS_ENGINE,
+                "EDGE_TTS_VOICE": self.EDGE_TTS_VOICE,
+                "EDGE_TTS_HINDI_VOICE": self.EDGE_TTS_HINDI_VOICE,
+                "EDGE_TTS_ENGLISH_VOICE": self.EDGE_TTS_ENGLISH_VOICE,
+                "EDGE_TTS_RATE": self.EDGE_TTS_RATE,
+                "EDGE_TTS_PITCH": self.EDGE_TTS_PITCH,
                 "KOKORO_ENGLISH_VOICE": self.KOKORO_ENGLISH_VOICE,
                 "KOKORO_HINDI_VOICE": self.KOKORO_HINDI_VOICE,
                 "FORCE_HINDI_ONLY_SPEECH": self.FORCE_HINDI_ONLY_SPEECH,
@@ -195,11 +287,50 @@ class AppConfig:
                 "STT_WHISPER_MODEL_SIZE": self.STT_WHISPER_MODEL_SIZE,
                 "STT_WHISPER_DEVICE": self.STT_WHISPER_DEVICE,
                 "STT_WHISPER_COMPUTE_TYPE": self.STT_WHISPER_COMPUTE_TYPE,
+                "ALWAYS_LISTEN": self.ALWAYS_LISTEN,
+                "SCREEN_ANALYSIS_CLOUD_CONSENT": self.SCREEN_ANALYSIS_CLOUD_CONSENT,
+                "MAX_CONVERSATION_HISTORY_MESSAGES": self.MAX_CONVERSATION_HISTORY_MESSAGES,
+                "LEARNING_MEMORY_MAX_ENTRIES": self.LEARNING_MEMORY_MAX_ENTRIES,
+                "LEARNING_MEMORY_TTL_DAYS": self.LEARNING_MEMORY_TTL_DAYS,
             }
-            with open(json_path, "w", encoding="utf-8") as f:
+            # Atomic write: a crash/power-loss mid-write must never leave
+            # config.json half-written (which load_from_json would then
+            # fail to parse, discarding EVERY setting, not just the one
+            # being changed). Write to a temp file in the same directory
+            # (so the rename is on the same filesystem/volume, guaranteeing
+            # atomicity) and rename over the real path only once the full
+            # write has succeeded.
+            tmp_path = json_path.with_suffix(".json.tmp")
+            with open(tmp_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
-        except Exception:
-            pass
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, json_path)
+            self.last_persistence_error = None
+            return True
+        except Exception as e:
+            msg = f"Could not save settings ({type(e).__name__}: {e})."
+            self.last_persistence_error = msg
+            try:
+                import logging
+                logging.getLogger("jarvis.config").error(msg)
+            except Exception:
+                pass
+            print(f"[Config] {msg}")
+            # Best-effort: also record it as an observed issue so it shows
+            # up in the Health dashboard / "what problem did you observe",
+            # not just a console line nobody sees. Lazy import — by the
+            # time save_to_json() is actually called (a UI action, well
+            # after startup) this is always safe, but importing it at
+            # config.py's own module level would risk a circular import
+            # during the very early config = AppConfig(); config.load_from_json()
+            # bootstrap in this same file.
+            try:
+                from core.observability.observer import observer
+                observer.record_issue("config_error", summary=msg, source="AppConfig.save_to_json")
+            except Exception:
+                pass
+            return False
 
 
 # Global singleton instance

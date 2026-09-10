@@ -18,7 +18,7 @@ from PySide6.QtGui import QFont
 
 from ui.styles.theme import theme
 from core.tools.tool_manager import tool_manager
-from core.tools.permission import permission_manager
+from ui.components.tool_runner import run_tool_async
 
 
 class ControlPage(QWidget):
@@ -66,9 +66,18 @@ class ControlPage(QWidget):
         lbl_sec_desc.setFont(QFont(theme.FONT_FAMILY, 9))
         lbl_sec_desc.setStyleSheet(f"color: {theme.TEXT_SECONDARY}; line-height: 1.4;")
 
-        # Toggle for requiring confirmation
-        self.chk_confirm = QCheckBox("Enforce explicit user confirmation for state-modifying actions")
+        # This used to be a live toggle that could disable confirmation
+        # entirely (permission_manager.require_confirmations = checked) —
+        # that was itself the security hole: a single UI checkbox could
+        # silently turn off human approval for every state-changing tool.
+        # Confirmation for CONFIRMATION_REQUIRED/HIGH_RISK tools is now a
+        # hard property of each tool's permission tier, enforced inside
+        # PermissionManager, and is not something any UI control can
+        # disable — so this is shown locked-on rather than removed, to be
+        # honest about that being a deliberate, non-negotiable boundary.
+        self.chk_confirm = QCheckBox("Explicit user confirmation is enforced for all state-modifying actions (always on)")
         self.chk_confirm.setChecked(True)
+        self.chk_confirm.setEnabled(False)
         self.chk_confirm.setStyleSheet(
             f"""
             QCheckBox {{
@@ -88,7 +97,6 @@ class ControlPage(QWidget):
             }}
             """
         )
-        self.chk_confirm.toggled.connect(self._on_confirmation_toggled)
 
         sec_layout.addWidget(lbl_sec_title)
         sec_layout.addWidget(lbl_sec_desc)
@@ -128,7 +136,14 @@ class ControlPage(QWidget):
             t_desc.setFont(QFont(theme.FONT_FAMILY, 9))
             t_desc.setStyleSheet(f"color: {theme.TEXT_SECONDARY};")
 
-            level_color = theme.STATUS_ONLINE if tool.permission_level.value == "SAFE" else theme.STATUS_WARNING
+            _level_colors = {
+                "READ_ONLY": theme.STATUS_ONLINE,
+                "LOW_RISK": theme.STATUS_ONLINE,
+                "CONFIRMATION_REQUIRED": theme.STATUS_WARNING,
+                "HIGH_RISK": theme.STATUS_ERROR,
+                "BLOCKED": theme.STATUS_ERROR,
+            }
+            level_color = _level_colors.get(tool.permission_level.value, theme.STATUS_WARNING)
             t_level = QLabel(tool.permission_level.value)
             t_level.setFont(QFont(theme.FONT_MONO, 8, QFont.Bold))
             t_level.setStyleSheet(
@@ -142,7 +157,12 @@ class ControlPage(QWidget):
                 f"border-radius: 4px; color: {theme.CYAN_ACCENT}; font-size: 8pt; }} "
                 f"QPushButton:hover {{ background: {theme.CYAN_ACCENT}; color: #000000; }}"
             )
-            test_btn.clicked.connect(lambda _, tname=tool.name: tool_manager.execute_tool(tname))
+            # A CONFIRMATION_REQUIRED/HIGH_RISK tool tested here now
+            # correctly shows a real approval dialog (previously it just
+            # executed unconditionally) — off the GUI thread so the window
+            # doesn't freeze while that dialog (or the tool itself, e.g.
+            # window polling) runs.
+            test_btn.clicked.connect(lambda _, tname=tool.name: run_tool_async(self, tname))
 
             r_layout.addWidget(t_name)
             r_layout.addWidget(t_desc, 1)
@@ -155,5 +175,3 @@ class ControlPage(QWidget):
         scroll.setWidget(container)
         main_layout.addWidget(scroll, 1)
 
-    def _on_confirmation_toggled(self, checked: bool):
-        permission_manager.require_confirmations = checked

@@ -63,18 +63,18 @@ class JarvisAICoreWeb(QWidget):
         # Set transparent page background so jarvis_hud.html floats seamlessly without dark rectangular cutoffs
         self._view.page().setBackgroundColor(QColor(0, 0, 0, 0))
 
-        # Enforce exactly 1.0 zoom factor and block scrollbars
-        self._view.setZoomFactor(1.0)
-        self._view.settings().setAttribute(QWebEngineSettings.WebAttribute.ShowScrollBars, False)
+        # Configure WebEngine settings for WebGL, local models, and transparent background
+        settings = self._view.settings()
+        settings.setAttribute(QWebEngineSettings.WebAttribute.ShowScrollBars, False)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.WebGLEnabled, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.Accelerated2dCanvasEnabled, True)
 
         # Intercept and block all wheel/gesture zoom events at the Qt level
         self._zoom_filter = ZoomFilter(self)
         self._view.installEventFilter(self._zoom_filter)
 
-        # jarvis_hud.html is loaded as file:// content but needs to fetch
-        # Three.js/fonts/the face model from remote CDNs — Chromium blocks
-        # local-origin pages from any remote network access by default.
-        self._view.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
         self._view.setUrl(QUrl.fromLocalFile(str(_HTML_PATH)))
 
         layout = QVBoxLayout(self)
@@ -85,6 +85,14 @@ class JarvisAICoreWeb(QWidget):
         self._timer.setInterval(33)
         self._timer.timeout.connect(self._push_state)
         self._timer.start()
+
+    def check_hud_ready(self, callback):
+        """Asynchronously checks whether the 3D Web HUD and model have initialized."""
+        page = self._view.page()
+        if page is None:
+            callback(False)
+            return
+        page.runJavaScript("!!(window.__hudReady || (window.faceRoot && window.faceRoot.children.length > 0))", callback)
 
     def showEvent(self, event):
         super().showEvent(event)

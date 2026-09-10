@@ -47,6 +47,12 @@ class VoiceState(Enum):
     LISTENING = "LISTENING"
     PROCESSING = "PROCESSING"
     SPEAKING = "SPEAKING"
+    # Mic disconnected, permission revoked, PyAudio failed to open a
+    # device, or the listener thread crashed. Previously there was no
+    # distinct state for this — the UI just stayed on whatever it last
+    # showed (usually "Listening...") forever, with a dead mic thread and
+    # no way to tell anything was wrong short of restarting the app.
+    MIC_UNAVAILABLE = "MIC UNAVAILABLE"
 
 
 class SpeechSynthesisWorker(QThread):
@@ -380,7 +386,29 @@ class SpeechSynthesisWorker(QThread):
         engine_mode = getattr(config, "TTS_ENGINE", "kokoro").lower().strip()
 
         # -------------------------------------------------------------
-        # 0. XTTS-v2 High-Quality Neural Synthesis (Opt-in, Cloud-grade quality, slower)
+        # 0. Edge TTS High-Quality Neural Synthesis (Free, Swara Hindi)
+        # -------------------------------------------------------------
+        if engine_mode in ("edge", "edge_tts") and self._running:
+            try:
+                from core.voice.edge_tts_engine import edge_tts_engine
+                audio_file = edge_tts_engine.synthesize(self.text)
+                log_stage("TTS_SYNTH_DONE", self.pipeline_t0, engine="edge_tts")
+                if audio_file and os.path.exists(audio_file) and self._running:
+                    played = self._play_audio_file(audio_file)
+                    try:
+                        os.remove(audio_file)
+                    except Exception:
+                        pass
+                    if played:
+                        self.amplitude_tick.emit(0.0)
+                        log_stage("TTS_DONE", self.pipeline_t0)
+                        self.synthesis_finished.emit()
+                        return
+            except Exception as e:
+                print(f"[VoiceEngine] Edge TTS warning: {e}, falling back to Kokoro.")
+
+        # -------------------------------------------------------------
+        # 1. XTTS-v2 High-Quality Neural Synthesis (Opt-in, Cloud-grade quality, slower)
         # -------------------------------------------------------------
         if engine_mode == "xtts" and self._running:
             try:
@@ -400,9 +428,9 @@ class SpeechSynthesisWorker(QThread):
                 print(f"[VoiceEngine] XTTS-v2 warning: {e}, falling back to Kokoro.")
 
         # -------------------------------------------------------------
-        # 1. Kokoro Neural Speech Synthesis (Free, Offline, Studio Quality)
+        # 2. Kokoro Neural Speech Synthesis (Free, Offline, Studio Quality)
         # -------------------------------------------------------------
-        if engine_mode in ("kokoro", "auto", "default", "xtts") and self._running:
+        if engine_mode in ("kokoro", "auto", "default", "xtts", "edge", "edge_tts") and self._running:
             try:
                 from core.voice.kokoro_engine import kokoro_engine
 
@@ -902,6 +930,33 @@ class VoiceEngine(QObject):
         self._mic_thread.listening_resumed.connect(self._on_mic_listening_resumed)
         self._mic_thread.amplitude_tick.connect(self._on_mic_amplitude_tick)
         self._mic_thread.barge_in_detected.connect(self._on_barge_in_detected)
+        # Previously unconnected — the mic thread emitted this correctly on
+        # every failure path (SpeechRecognition unavailable, both mic
+        # constructions failing, or an unhandled exception inside the
+        # listen loop) but nothing ever reacted to it, so the UI stayed on
+        # whatever it last showed with a dead thread and no recovery path.
+        self._mic_thread.listening_active.connect(self._on_mic_listening_active)
+
+    def _on_mic_listening_active(self, active: bool):
+        if not active:
+            self.set_state(VoiceState.MIC_UNAVAILABLE)
+        elif self._state == VoiceState.MIC_UNAVAILABLE:
+            self.set_state(VoiceState.LISTENING)
+
+    def retry_microphone(self) -> None:
+        """
+        Recreates the mic listener thread from scratch and starts it —
+        recovers from a mic disconnect/permission-revoke/PyAudio failure
+        without restarting the whole app. Always builds a FRESH QThread
+        instance (same pattern as set_microphone_device()) rather than
+        trying to restart the old, already-finished one, since QThread
+        restart semantics after run() has returned aren't something to
+        depend on.
+        """
+        if self._mic_thread and self._mic_thread.isRunning():
+            self._mic_thread.stop()
+        self._init_mic_thread()
+        self.start_continuous_listening()
 
     def _on_mic_amplitude_tick(self, amp: float):
         if self._state == VoiceState.LISTENING:
@@ -950,6 +1005,19 @@ class VoiceEngine(QObject):
         self._mic_thread.resume_listening()
         self.set_state(VoiceState.LISTENING)
 
+    def pause_listening(self) -> None:
+        """Temporarily pauses mic transcription without tearing down the thread."""
+        if self._mic_thread and self._mic_thread.isRunning():
+            self._mic_thread.pause_listening()
+
+    def resume_listening(self) -> None:
+        """Resumes mic listening."""
+        if self._mic_thread:
+            if not self._mic_thread.isRunning():
+                self._mic_thread.start()
+            self._mic_thread.resume_listening()
+            self.set_state(VoiceState.LISTENING)
+
     def stop_listening(self) -> None:
         """Halts listening."""
         if self._mic_thread and self._mic_thread.isRunning():
@@ -974,7 +1042,12 @@ class VoiceEngine(QObject):
         self.set_state(VoiceState.OFF)
 
     def toggle_listening(self) -> None:
-        if self._state == VoiceState.LISTENING:
+        if self._state == VoiceState.MIC_UNAVAILABLE:
+            # Clicking the mic button while it's flagged unavailable means
+            # "try again" (e.g. the user just plugged the mic back in or
+            # granted the OS permission prompt), not "turn off listening".
+            self.retry_microphone()
+        elif self._state == VoiceState.LISTENING:
             self.stop_listening()
         else:
             self.start_continuous_listening()

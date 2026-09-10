@@ -8,13 +8,65 @@ import math
 from typing import Optional
 
 from PySide6.QtCore import (
-    Qt, QTimer, QPropertyAnimation, QEasingCurve, QRectF, QPointF, Signal
+    Qt, QTimer, QPropertyAnimation, QEasingCurve, QRectF, QPointF, Signal, QThread
 )
 from PySide6.QtGui import (
     QPainter, QColor, QPen, QBrush, QLinearGradient, QRadialGradient,
     QFont, QPainterPath, QGuiApplication
 )
 from PySide6.QtWidgets import QWidget, QApplication, QGraphicsOpacityEffect
+
+
+class StartupPreloadWorker(QThread):
+    """Background worker that loads neural voice and speech models during splash screen."""
+    progress_changed = Signal(int, str)
+    preload_complete = Signal()
+
+    def __init__(self, main_window: Optional[QWidget] = None, parent: Optional[QWidget] = None):
+        super().__init__(parent)
+        self._window = main_window
+
+    def run(self):
+        # 1. Preload Kokoro Neural TTS into memory
+        self.progress_changed.emit(35, "LOADING NEURAL VOICE SYNTHESIS (KOKORO)...")
+        try:
+            from core.voice.kokoro_engine import kokoro_engine
+            kokoro_engine._ensure_loaded()
+        except Exception as e:
+            print(f"[SplashPreload] Kokoro notice: {e}")
+
+        # 2. Preload Faster-Whisper Speech Recognition Model into memory
+        self.progress_changed.emit(70, "LOADING SPEECH RECOGNITION (FASTER-WHISPER)...")
+        try:
+            from core.voice.stt_engine import stt_engine
+            stt_engine.ensure_whisper_loaded()
+        except Exception as e:
+            print(f"[SplashPreload] Faster-Whisper notice: {e}")
+
+        # 3. Preload AI Brain provider
+        self.progress_changed.emit(88, "INITIALIZING AI BRAIN CONNECTION...")
+        try:
+            from core.ai.manager import ai_manager
+            # Two bugs previously made this step a complete no-op, silently
+            # swallowed by the bare except below: get_active_provider() was
+            # never a real method (ai_manager exposes `active_provider` as
+            # a property), and even past that, GroqProvider's real method
+            # is warm_up() not warmup(). The splash screen's "INITIALIZING
+            # AI BRAIN CONNECTION..." step looked like it was doing
+            # something the whole time it wasn't.
+            provider = ai_manager.active_provider
+            if hasattr(provider, "warm_up"):
+                provider.warm_up()
+        except Exception as e:
+            print(f"[SplashPreload] AI provider warm-up notice: {e}")
+
+        # 4. Small pause to allow WebGL 3D HUD to compile shaders and settle
+        self.progress_changed.emit(96, "SYNCHRONIZING 3D CYBERNETIC HUD...")
+        import time
+        time.sleep(0.5)
+
+        self.progress_changed.emit(100, "ALL SYSTEMS OPERATIONAL. READY.")
+        self.preload_complete.emit()
 
 
 class JarvisSplashScreen(QWidget):
@@ -32,6 +84,7 @@ class JarvisSplashScreen(QWidget):
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
+        self._preload_worker: Optional[StartupPreloadWorker] = None
 
         # Frameless, on-top, splash screen behavior
         self.setWindowFlags(
@@ -91,6 +144,16 @@ class JarvisSplashScreen(QWidget):
             self._status_text = status.upper()
         self.update()
         QApplication.processEvents()
+
+    def start_preload(self, main_window: Optional[QWidget], on_complete):
+        """
+        Starts the background model preloading while keeping the splash screen
+        animated and responsive, then triggers on_complete when finished.
+        """
+        self._preload_worker = StartupPreloadWorker(main_window, self)
+        self._preload_worker.progress_changed.connect(self.set_progress)
+        self._preload_worker.preload_complete.connect(on_complete)
+        self._preload_worker.start()
 
     def finish(self, main_window: Optional[QWidget] = None):
         """

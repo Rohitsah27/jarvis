@@ -148,11 +148,13 @@ class GroqProvider(BaseAIProvider):
                 raw_content = data["choices"][0]["message"]["content"]
                 latency = (time.perf_counter() - start_t) * 1000.0
 
+                # The real model's own tool-call decision is final — never
+                # replaced with the offline regex brain's own guess. If
+                # Groq's response contains no [ACTION:...] tag, that means
+                # "no tool", full stop; substituting a different engine's
+                # opinion here let an action run that neither the human nor
+                # the selected AI model actually approved.
                 clean_text, tool_calls = self._parse_action_tags(raw_content)
-                if not tool_calls:
-                    sim = jarvis_brain.think(prompt)
-                    if sim.tool_calls:
-                        tool_calls = sim.tool_calls
 
                 self._quota_notice_shown = False
                 return AIResponse(

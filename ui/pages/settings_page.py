@@ -190,6 +190,7 @@ class SettingsPage(QWidget):
         lbl_eng = QLabel("Active Voice Engine:")
         lbl_eng.setStyleSheet("color: #ffffff;")
         self.combo_tts_engine = QComboBox()
+        self.combo_tts_engine.addItem("Microsoft Edge TTS (Free, Neural Cloud - Swara Hindi Default)", "edge")
         self.combo_tts_engine.addItem("Kokoro Neural TTS (Free, Offline - Classic JARVIS)", "kokoro")
         self.combo_tts_engine.addItem("XTTS-v2 Coqui (High Quality / Voice Cloning - Slower, Offline)", "xtts")
         self.combo_tts_engine.addItem("ElevenLabs Studio API (Cloud / Brian)", "elevenlabs")
@@ -199,12 +200,52 @@ class SettingsPage(QWidget):
         )
         # Select current engine
         for i in range(self.combo_tts_engine.count()):
-            if self.combo_tts_engine.itemData(i) == getattr(config, "TTS_ENGINE", "kokoro"):
+            if self.combo_tts_engine.itemData(i) == getattr(config, "TTS_ENGINE", "edge"):
                 self.combo_tts_engine.setCurrentIndex(i)
                 break
         row_eng.addWidget(lbl_eng)
         row_eng.addWidget(self.combo_tts_engine, 1)
         tts_l.addLayout(row_eng)
+
+        # Edge TTS Hindi Voice Selector
+        row_edge_hi = QHBoxLayout()
+        lbl_edge_hi = QLabel("Hindi Voice (Edge TTS):")
+        lbl_edge_hi.setStyleSheet("color: #ffffff;")
+        self.combo_edge_hi = QComboBox()
+        self.combo_edge_hi.addItem("hi-IN-SwaraNeural (Swara Female - Natural Hindi, Default & Recommended)", "hi-IN-SwaraNeural")
+        self.combo_edge_hi.addItem("hi-IN-MadhurNeural (Madhur Male - Natural Hindi)", "hi-IN-MadhurNeural")
+        self.combo_edge_hi.setStyleSheet(
+            f"background: {theme.BG_CARD}; color: #ffffff; border: 1px solid rgba(0,210,255,0.3); border-radius: 6px; padding: 6px;"
+        )
+        for i in range(self.combo_edge_hi.count()):
+            if self.combo_edge_hi.itemData(i) == getattr(config, "EDGE_TTS_HINDI_VOICE", "hi-IN-SwaraNeural"):
+                self.combo_edge_hi.setCurrentIndex(i)
+                break
+        row_edge_hi.addWidget(lbl_edge_hi)
+        row_edge_hi.addWidget(self.combo_edge_hi, 1)
+        tts_l.addLayout(row_edge_hi)
+
+        # Edge TTS English Voice Selector
+        row_edge_en = QHBoxLayout()
+        lbl_edge_en = QLabel("English Voice (Edge TTS):")
+        lbl_edge_en.setStyleSheet("color: #ffffff;")
+        self.combo_edge_en = QComboBox()
+        self.combo_edge_en.addItem("en-IN-NeerjaNeural (Neerja Female - Indian English)", "en-IN-NeerjaNeural")
+        self.combo_edge_en.addItem("en-IN-PrabhatNeural (Prabhat Male - Indian English)", "en-IN-PrabhatNeural")
+        self.combo_edge_en.addItem("en-US-JennyNeural (Jenny Female - US English)", "en-US-JennyNeural")
+        self.combo_edge_en.addItem("en-US-GuyNeural (Guy Male - US English)", "en-US-GuyNeural")
+        self.combo_edge_en.addItem("en-GB-SoniaNeural (Sonia Female - UK English)", "en-GB-SoniaNeural")
+        self.combo_edge_en.addItem("en-GB-RyanNeural (Ryan Male - UK English)", "en-GB-RyanNeural")
+        self.combo_edge_en.setStyleSheet(
+            f"background: {theme.BG_CARD}; color: #ffffff; border: 1px solid rgba(0,210,255,0.3); border-radius: 6px; padding: 6px;"
+        )
+        for i in range(self.combo_edge_en.count()):
+            if self.combo_edge_en.itemData(i) == getattr(config, "EDGE_TTS_ENGLISH_VOICE", "en-IN-NeerjaNeural"):
+                self.combo_edge_en.setCurrentIndex(i)
+                break
+        row_edge_en.addWidget(lbl_edge_en)
+        row_edge_en.addWidget(self.combo_edge_en, 1)
+        tts_l.addLayout(row_edge_en)
 
         # Kokoro English Voice Selector
         row_en = QHBoxLayout()
@@ -245,7 +286,7 @@ class SettingsPage(QWidget):
         tts_l.addLayout(row_hi)
 
         # Language Routing Info Badge
-        lbl_route = QLabel("🌐 Auto Language Routing: English text vocalizes with George • Hindi text vocalizes with Omega")
+        lbl_route = QLabel("🌐 Auto Language Routing: Hindi vocalizes with Swara (Edge) / Omega • English vocalizes with Neerja / George")
         lbl_route.setStyleSheet("color: #38bdf8; font-size: 8.5pt; padding: 4px 8px; background: rgba(0,210,255,0.08); border-radius: 6px;")
         tts_l.addWidget(lbl_route)
 
@@ -376,6 +417,76 @@ class SettingsPage(QWidget):
 
         layout.addWidget(user_card)
 
+        # 4. Privacy Card
+        privacy_card = QFrame()
+        privacy_card.setStyleSheet(
+            f"background-color: {theme.BG_PANEL}; border: 1px solid rgba(0, 210, 255, 0.2); border-radius: 12px; padding: 16px;"
+        )
+        p_l = QVBoxLayout(privacy_card)
+        p_l.setSpacing(10)
+
+        lbl_p_sec = QLabel("PRIVACY")
+        lbl_p_sec.setFont(QFont(theme.FONT_FAMILY, 9, QFont.Bold))
+        lbl_p_sec.setStyleSheet(f"color: {theme.CYAN_ACCENT};")
+        p_l.addWidget(lbl_p_sec)
+
+        # ALWAYS_LISTEN: JARVIS has no wake-word stage, so this is a real,
+        # user-facing privacy choice, not a convenience toggle — disclosed
+        # plainly here rather than buried as a generic "voice" setting.
+        self.chk_always_listen = QCheckBox(
+            "Always listen (no wake word) — transcribes everything the microphone "
+            "hears the whole time JARVIS is running"
+        )
+        self.chk_always_listen.setChecked(bool(config.ALWAYS_LISTEN))
+        self.chk_always_listen.setStyleSheet("color: #ffffff;")
+        p_l.addWidget(self.chk_always_listen)
+
+        # Cloud screen-analysis consent status + revoke control.
+        consent_row = QHBoxLayout()
+        self.lbl_screen_consent = QLabel()
+        self.lbl_screen_consent.setStyleSheet(f"color: {theme.TEXT_SECONDARY};")
+        self._refresh_screen_consent_label()
+        self.btn_revoke_consent = QPushButton("Revoke Cloud Screen-Analysis Consent")
+        self.btn_revoke_consent.setStyleSheet(
+            "QPushButton { background: rgba(255, 77, 77, 0.12); border: 1px solid #ff4d4d; "
+            "border-radius: 6px; color: #ff4d4d; padding: 6px 10px; }"
+            "QPushButton:hover { background: #ff4d4d; color: #000; }"
+        )
+        self.btn_revoke_consent.clicked.connect(self._revoke_screen_consent)
+        consent_row.addWidget(self.lbl_screen_consent, 1)
+        consent_row.addWidget(self.btn_revoke_consent)
+        p_l.addLayout(consent_row)
+
+        note = QLabel(
+            "analyze_screen sends a screenshot to a cloud vision provider (Gemini/OpenAI) only "
+            "after you've explicitly allowed it once — revoking here means the next screen "
+            "question will ask again, and until then screen analysis stays fully local."
+        )
+        note.setWordWrap(True)
+        note.setFont(QFont(theme.FONT_FAMILY, 8))
+        note.setStyleSheet(f"color: {theme.TEXT_MUTED};")
+        p_l.addWidget(note)
+
+        # Learned-corrections memory: bounded/expiring now, but still worth
+        # a manual "forget everything" action for a user who wants a clean
+        # slate (e.g. a bad correction keeps getting replayed).
+        learn_row = QHBoxLayout()
+        lbl_learn = QLabel("Learned voice corrections are stored locally, capped, and auto-expire.")
+        lbl_learn.setWordWrap(True)
+        lbl_learn.setStyleSheet(f"color: {theme.TEXT_SECONDARY}; font-size: 8pt;")
+        self.btn_clear_learned = QPushButton("Clear Learned Data")
+        self.btn_clear_learned.setStyleSheet(
+            "QPushButton { background: rgba(255, 77, 77, 0.12); border: 1px solid #ff4d4d; "
+            "border-radius: 6px; color: #ff4d4d; padding: 6px 10px; }"
+            "QPushButton:hover { background: #ff4d4d; color: #000; }"
+        )
+        self.btn_clear_learned.clicked.connect(self._clear_learned_data)
+        learn_row.addWidget(lbl_learn, 1)
+        learn_row.addWidget(self.btn_clear_learned)
+        p_l.addLayout(learn_row)
+
+        layout.addWidget(privacy_card)
+
         # Save Button & Confirmation Status
         save_btn = QPushButton("Save Preferences")
         save_btn.setFixedHeight(38)
@@ -411,15 +522,64 @@ class SettingsPage(QWidget):
 
     def _audition_english(self):
         from core.voice.voice_engine import voice_engine
-        config.KOKORO_ENGLISH_VOICE = self.combo_kokoro_en.currentData() or "bm_george"
+        engine = self.combo_tts_engine.currentData()
+        config.TTS_ENGINE = engine
+        if engine in ("edge", "edge_tts") and hasattr(self, "combo_edge_en"):
+            config.EDGE_TTS_ENGLISH_VOICE = self.combo_edge_en.currentData() or "en-IN-NeerjaNeural"
+        else:
+            config.KOKORO_ENGLISH_VOICE = self.combo_kokoro_en.currentData() or "bm_george"
         voice_engine.speak("Good morning, Sir. All JARVIS systems are fully operational and standing by.")
 
     def _audition_hindi(self):
         from core.voice.voice_engine import voice_engine
-        config.KOKORO_HINDI_VOICE = self.combo_kokoro_hi.currentData() or "hm_omega"
-        voice_engine.speak("नमस्ते रोहित सर, मैं जार्विस हूँ। सभी सिस्टम तैयार हैं।")
+        engine = self.combo_tts_engine.currentData()
+        config.TTS_ENGINE = engine
+        if engine in ("edge", "edge_tts") and hasattr(self, "combo_edge_hi"):
+            config.EDGE_TTS_HINDI_VOICE = self.combo_edge_hi.currentData() or "hi-IN-SwaraNeural"
+            config.EDGE_TTS_VOICE = self.combo_edge_hi.currentData() or "hi-IN-SwaraNeural"
+        else:
+            config.KOKORO_HINDI_VOICE = self.combo_kokoro_hi.currentData() or "hm_omega"
+        voice_engine.speak("नमस्ते रोहित सर, मैं स्वरा हूँ। सभी सिस्टम तैयार हैं।")
+
+    def _refresh_screen_consent_label(self):
+        state = getattr(config, "SCREEN_ANALYSIS_CLOUD_CONSENT", None)
+        if state is True:
+            self.lbl_screen_consent.setText("Cloud screen analysis: ALLOWED")
+            self.lbl_screen_consent.setStyleSheet(f"color: {theme.STATUS_WARNING};")
+        elif state is False:
+            self.lbl_screen_consent.setText("Cloud screen analysis: DENIED (local-only)")
+            self.lbl_screen_consent.setStyleSheet(f"color: {theme.STATUS_ONLINE};")
+        else:
+            self.lbl_screen_consent.setText("Cloud screen analysis: not yet asked")
+            self.lbl_screen_consent.setStyleSheet(f"color: {theme.TEXT_SECONDARY};")
+
+    def _revoke_screen_consent(self):
+        config.SCREEN_ANALYSIS_CLOUD_CONSENT = False
+        config.save_to_json()
+        self._refresh_screen_consent_label()
+        self.lbl_save_status.setText("✓ Cloud screen-analysis consent revoked.")
+
+    def _clear_learned_data(self):
+        from core.voice import learning_memory
+        ok = learning_memory.clear_all()
+        if ok:
+            self.lbl_save_status.setText("✓ Learned voice-correction data cleared.")
+            self.lbl_save_status.setStyleSheet("color: #00ffea; font-size: 9pt;")
+        else:
+            self.lbl_save_status.setText("✗ Could not clear learned data — see logs.")
+            self.lbl_save_status.setStyleSheet("color: #ff4d4d; font-size: 9pt; font-weight: bold;")
 
     def _save_preferences(self):
+        config.ALWAYS_LISTEN = self.chk_always_listen.isChecked()
+        try:
+            from core.voice.voice_engine import voice_engine as _ve
+            if config.ALWAYS_LISTEN:
+                _ve.start_continuous_listening()
+            else:
+                _ve.stop_listening()
+        except Exception:
+            pass
+
         config.USER_NAME = self.txt_name.text().strip() or config.USER_NAME
         config.USER_LOCATION = self.txt_loc.text().strip() or config.USER_LOCATION
         config.OPENSOURCE_LLM_URL = self.txt_ollama_url.text().strip()
@@ -436,8 +596,13 @@ class SettingsPage(QWidget):
         ai_manager.set_provider(chosen_provider)
         config.DEFAULT_AI_PROVIDER = chosen_provider
 
-        # Update TTS Engine & Kokoro Voices
+        # Update TTS Engine & Voices
         config.TTS_ENGINE = self.combo_tts_engine.currentData()
+        if hasattr(self, "combo_edge_hi"):
+            config.EDGE_TTS_HINDI_VOICE = self.combo_edge_hi.currentData() or "hi-IN-SwaraNeural"
+            config.EDGE_TTS_VOICE = self.combo_edge_hi.currentData() or "hi-IN-SwaraNeural"
+        if hasattr(self, "combo_edge_en"):
+            config.EDGE_TTS_ENGLISH_VOICE = self.combo_edge_en.currentData() or "en-IN-NeerjaNeural"
         config.KOKORO_ENGLISH_VOICE = self.combo_kokoro_en.currentData()
         config.KOKORO_HINDI_VOICE = self.combo_kokoro_hi.currentData()
         new_eleven_key = self.txt_eleven_key.text().strip()
@@ -462,9 +627,16 @@ class SettingsPage(QWidget):
         # Every field above must be set on `config` before this call — it's
         # what actually persists to config.json, so anything updated after it
         # silently only lasts until the app restarts.
-        config.save_to_json()
-
-        self.lbl_save_status.setText("✓ Preferences, Voice Engine, and Microphone settings saved!")
+        saved = config.save_to_json()
+        if saved:
+            self.lbl_save_status.setText("✓ Preferences, Voice Engine, and Microphone settings saved!")
+            self.lbl_save_status.setStyleSheet("color: #00ffea; font-size: 9pt;")
+        else:
+            # config.save_to_json() failed — the old bug here was catching
+            # this silently, leaving the user believing their changes were
+            # saved when they weren't. Show exactly what went wrong.
+            self.lbl_save_status.setText(f"✗ Save failed: {config.last_persistence_error or 'unknown error'}")
+            self.lbl_save_status.setStyleSheet("color: #ff4d4d; font-size: 9pt; font-weight: bold;")
 
     def _on_voice_amplitude(self, amp: float):
         pass

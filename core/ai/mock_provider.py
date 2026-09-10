@@ -1,5 +1,13 @@
 """
-Mock AI Provider simulating JARVIS's cognitive reasoning, tool execution decisions, and persona.
+Offline AI Provider — JARVIS's local, zero-network cognitive fallback.
+Simulates tool execution decisions and persona responses using regex/keyword
+pattern matching (core/ai/brain.py), used whenever a real cloud provider's
+API key is unset or a call to it fails.
+
+Previously this reported itself as "Anthropic Claude" regardless of which
+real provider it was standing in for — misleading the user into thinking a
+real cloud model produced the response when it was actually a local regex
+engine. It now reports an honest, provider-specific label.
 """
 import time
 from typing import List, Optional, Iterator
@@ -8,16 +16,17 @@ from core.ai.base import BaseAIProvider, AIResponse, ChatMessage
 
 class MockJarvisProvider(BaseAIProvider):
     """
-    Simulates Claude Opus 4.8 / JARVIS intelligent core.
-    Parses intent to simulate system control tool calls and realistic persona responses.
+    Offline fallback: parses intent to simulate system control tool calls
+    and realistic persona responses without calling any external API.
     """
 
-    def __init__(self, model_name: str = "Claude Opus 4.8"):
+    def __init__(self, model_name: str = "JARVIS Offline Engine", provider_label: str = "JARVIS Offline"):
         self._model_name = model_name
+        self._provider_label = provider_label
 
     @property
     def name(self) -> str:
-        return "Anthropic Claude"
+        return self._provider_label
 
     @property
     def model(self) -> str:

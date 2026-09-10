@@ -1,8 +1,12 @@
 """
 Built-in safe system tools for Windows desktop automation.
 """
+import logging
 import os
+import re
+import shutil
 import subprocess
+import threading
 import time
 import webbrowser
 from datetime import datetime
@@ -12,6 +16,9 @@ from PySide6.QtGui import QGuiApplication
 import psutil
 
 from core.tools.base import BaseTool, PermissionLevel, ToolResult
+from core.tools.confirmation import confirmation_service
+
+logger = logging.getLogger("jarvis.tools")
 
 
 class TakeScreenshotTool(BaseTool):
@@ -27,7 +34,7 @@ class TakeScreenshotTool(BaseTool):
 
     @property
     def permission_level(self) -> PermissionLevel:
-        return PermissionLevel.SAFE
+        return PermissionLevel.LOW_RISK
 
     def execute(self, **kwargs) -> ToolResult:
         try:
@@ -72,6 +79,12 @@ class OpenAppTool(BaseTool):
     @property
     def permission_level(self) -> PermissionLevel:
         return PermissionLevel.CONFIRMATION_REQUIRED
+
+    def confirmation_summary(self, args) -> str:
+        return f"Launch application '{args.get('app', '')}'"
+
+    def confirmation_target(self, args) -> str:
+        return str(args.get("app", ""))
 
     # Friendly-name aliases for apps whose process/AppX name doesn't match what users say
     _ALIASES = {
@@ -146,6 +159,18 @@ class OpenAppTool(BaseTool):
         "control panel": ["control.exe"],
     }
 
+    # Characters that carry special meaning to cmd.exe's own command-line
+    # parser (&, |, <, >, ^ chain/redirect commands; % expands variables;
+    # quotes/newlines can terminate or re-open tokens). `target` here can
+    # originate directly from LLM tool-call output or a misheard voice
+    # transcript — an unrecognized name skips the fixed `_ALIASES` map
+    # entirely and reaches this string verbatim, so it must never be handed
+    # to cmd.exe's `/c start` unsanitized (that's what made this a
+    # command-injection surface: `cmd /c start "" "<target>"` still lets
+    # cmd.exe split on `&`/`|` even though target is individually quoted by
+    # list2cmdline, because cmd.exe re-tokenizes the *whole* line itself).
+    _SHELL_METACHARACTERS = set("&|<>^%\n\r\"")
+
     def execute(self, **kwargs) -> ToolResult:
         raw_name = str(kwargs.get("app", "notepad")).strip()
         app_name = raw_name.lower().strip()
@@ -157,11 +182,30 @@ class OpenAppTool(BaseTool):
                 os.startfile(target)
                 return ToolResult(True, f"Application '{raw_name}' launched successfully.", self.name)
 
-            subprocess.Popen(["cmd", "/c", "start", "", target], shell=True)
+            if any(ch in target for ch in self._SHELL_METACHARACTERS):
+                return ToolResult(
+                    False,
+                    f"Rejected: application name contains unsafe characters: '{raw_name}'",
+                    self.name,
+                    error="unsafe_characters",
+                )
 
-            # `cmd /c start` never raises for a nonexistent app — it launches
-            # the shell command itself successfully regardless of whether the
-            # target actually exists, so Popen not raising is not proof
+            # os.startfile() calls ShellExecuteEx directly — it does NOT
+            # invoke cmd.exe and does not re-parse the string for shell
+            # metacharacters, unlike `cmd /c start`. It resolves bare
+            # executable names via the same PATH/App-Paths-registry lookup
+            # `start` would use, so this covers the overwhelming majority of
+            # cases safely. `cmd /c start` is kept only as a fallback for the
+            # rare bare command ShellExecute can't resolve on its own — and
+            # by this point `target` has already passed the metacharacter
+            # check above, so the fallback is safe too.
+            try:
+                os.startfile(target)
+            except OSError:
+                subprocess.Popen(["cmd", "/c", "start", "", target], shell=False)
+
+            # Neither os.startfile() nor `cmd /c start` reliably raises for a
+            # nonexistent app — launching "successfully" is not proof
             # anything actually opened. Found via testing: an app name with
             # no window ever appearing (`focused` stays False) was previously
             # still reported as a successful launch every time. For a KNOWN
@@ -309,7 +353,35 @@ class TypeTextTool(BaseTool):
 
     @property
     def permission_level(self) -> PermissionLevel:
-        return PermissionLevel.SAFE
+        # Previously SAFE — combined with press_key (which can send Enter),
+        # an unconfirmed type_text is a de facto keystroke-injection
+        # primitive into whatever window currently has focus, including a
+        # terminal, browser address bar, or password field. Every call now
+        # requires explicit human approval, with the exact text and target
+        # window shown in the confirmation dialog (see confirmation_summary
+        # / confirmation_target below).
+        return PermissionLevel.CONFIRMATION_REQUIRED
+
+    @staticmethod
+    def _focused_window_title() -> str:
+        try:
+            from core.system.screen_analyzer import screen_analyzer
+            fg = screen_analyzer.get_foreground_window()
+            if fg:
+                proc = fg.get("process", "") or "unknown"
+                title = fg.get("title", "") or ""
+                return f"{proc} — {title}" if title else proc
+        except Exception:
+            pass
+        return "the currently focused window"
+
+    def confirmation_summary(self, args) -> str:
+        text = str(args.get("text", ""))
+        preview = text if len(text) <= 200 else text[:200] + "..."
+        return f"Type this text:\n\n    {preview}"
+
+    def confirmation_target(self, args) -> str:
+        return self._focused_window_title()
 
     def execute(self, **kwargs) -> ToolResult:
         text = str(kwargs.get("text", ""))
@@ -392,6 +464,12 @@ class PressKeyTool(BaseTool):
     def permission_level(self) -> PermissionLevel:
         return PermissionLevel.CONFIRMATION_REQUIRED
 
+    def confirmation_summary(self, args) -> str:
+        return f"Press key combination: {args.get('keys', '')}"
+
+    def confirmation_target(self, args) -> str:
+        return TypeTextTool._focused_window_title()
+
     _VK_MAP = {
         "ctrl": 0x11, "control": 0x11, "shift": 0x10, "alt": 0x12, "win": 0x5B,
         "enter": 0x0D, "return": 0x0D, "esc": 0x1B, "escape": 0x1B, "tab": 0x09,
@@ -444,8 +522,28 @@ class ClickScreenTool(BaseTool):
     def permission_level(self) -> PermissionLevel:
         return PermissionLevel.CONFIRMATION_REQUIRED
 
+    def confirmation_summary(self, args) -> str:
+        desc = args.get("description")
+        if desc:
+            return f"Click on: {desc}"
+        return f"Click at screen coordinates ({args.get('x')}, {args.get('y')})"
+
     def _locate_element(self, description: str):
-        """Asks the vision model for the approximate pixel location of a described element."""
+        """
+        Asks the vision model for the approximate pixel location of a
+        described element — this ALSO uploads a screenshot to a cloud
+        vision API, same as analyze_screen, so it respects the same
+        SCREEN_ANALYSIS_CLOUD_CONSENT gate (no separate prompt here: this
+        tool call already showed its own CONFIRMATION_REQUIRED dialog for
+        the click itself; without prior cloud consent it simply can't
+        resolve a description to coordinates and returns None, which
+        execute() already turns into a clear "couldn't find it" result).
+        """
+        from app.config import config
+        if not getattr(config, "SCREEN_ANALYSIS_CLOUD_CONSENT", None):
+            return None
+
+        screenshot_path = None
         try:
             from core.system.screen_analyzer import screen_analyzer, _query_screen_vision
             screenshot_path = screen_analyzer.capture_screenshot()
@@ -458,13 +556,16 @@ class ClickScreenTool(BaseTool):
             raw = _query_screen_vision(screenshot_path, question)
             if not raw:
                 return None
-            import re
             m = re.search(r"(\d+)\s*,\s*(\d+)", raw)
             if not m:
                 return None
             return int(m.group(1)), int(m.group(2))
         except Exception:
             return None
+        finally:
+            if screenshot_path:
+                from core.system.screen_analyzer import screen_analyzer
+                screen_analyzer._cleanup_screenshot(screenshot_path)
 
     def execute(self, **kwargs) -> ToolResult:
         x = kwargs.get("x")
@@ -511,7 +612,7 @@ class ScrollScreenTool(BaseTool):
 
     @property
     def permission_level(self) -> PermissionLevel:
-        return PermissionLevel.SAFE
+        return PermissionLevel.LOW_RISK
 
     def execute(self, **kwargs) -> ToolResult:
         direction = str(kwargs.get("direction", "down")).lower().strip()
@@ -548,6 +649,15 @@ class RunClaudeCLITool(BaseTool):
 
     PROJECT_DIR = str(Path(__file__).resolve().parent.parent.parent)
 
+    # Only one Claude CLI modification job may run at a time, no matter
+    # which caller triggers it (the normal LLM tool-calling loop, or
+    # core/observability/auto_fix.py's AutoFixWorker) — a second concurrent
+    # attempt is rejected outright rather than silently queued, so the
+    # caller gets an immediate, honest answer instead of racing file edits
+    # against an in-flight run. Class-level so it's shared across every
+    # instance regardless of who constructs one.
+    _run_lock = threading.Lock()
+
     @property
     def name(self) -> str:
         return "run_claude_cli"
@@ -557,49 +667,144 @@ class RunClaudeCLITool(BaseTool):
         return (
             "Delegates a coding/development task on the JARVIS project itself to the Claude Code CLI "
             "(e.g. 'fix the volume bug', 'add a settings toggle for X'). File edits are auto-approved; "
-            "shell/command execution is not, for safety. Takes a few seconds to a few minutes."
+            "shell/command execution is not, for safety. Takes a few seconds to a few minutes. ALWAYS "
+            "requires an explicit human confirmation shown right before it runs — this cannot be skipped."
         )
 
     @property
     def permission_level(self) -> PermissionLevel:
-        return PermissionLevel.CONFIRMATION_REQUIRED
+        return PermissionLevel.HIGH_RISK
+
+    @property
+    def self_confirms(self) -> bool:
+        return True
+
+    @property
+    def default_timeout_seconds(self) -> float:
+        # Must cover the confirmation wait (up to confirmation_service's
+        # timeout, 30s) PLUS the actual subprocess run (up to 180s) with
+        # margin for process startup/teardown.
+        return 240.0
+
+    def confirmation_summary(self, args) -> str:
+        task = str(args.get("task", ""))
+        preview = task if len(task) <= 300 else task[:300] + "..."
+        return (
+            "JARVIS wants to delegate a CODE-MODIFYING task to the Claude Code CLI. "
+            "File edits inside the JARVIS project folder will be auto-approved without "
+            "further prompts.\n\nTask:\n    " + preview
+        )
+
+    def confirmation_target(self, args) -> str:
+        return self.PROJECT_DIR
 
     def execute(self, **kwargs) -> ToolResult:
         task = str(kwargs.get("task", "")).strip()
         if not task:
             return ToolResult(False, "No task description provided for Claude CLI.", self.name)
 
-        # List form (not an interpolated string) even with shell=True: on
-        # Windows, subprocess converts a list to a command line via its own
-        # proper quoting/escaping (list2cmdline), so a task string containing
-        # quotes or shell metacharacters can't break out of its argument —
-        # shell=True is only needed here to resolve `claude`'s npm .cmd shim.
-        cmd = [
-            "claude", "-p", task,
-            "--add-dir", self.PROJECT_DIR,
-            "--permission-mode", "acceptEdits",
-            "--permission-prompts", "none",
-            "--max-budget-usd", "1.00",
-            "--output-format", "text",
-        ]
-        try:
-            result = subprocess.run(
-                cmd, cwd=self.PROJECT_DIR, capture_output=True, text=True,
-                timeout=180, encoding="utf-8", errors="replace", shell=True,
+        # HARD WALL — deliberately independent of PermissionManager and of
+        # whoever called execute(). This is the single most sensitive tool
+        # in JARVIS (it can modify JARVIS's own source code), so it must
+        # never run without an explicit human decision obtained RIGHT HERE,
+        # regardless of call path: the normal LLM tool-calling loop, the
+        # intent-router fast path (verified it cannot even name this tool),
+        # a provider-level fallback, AutoFix's own separate voice-confirmed
+        # flow, or any future caller. There is no flag, config value, or
+        # prompt instruction anywhere that can skip this call.
+        decision = confirmation_service.request(
+            tool_name=self.name,
+            action_description=self.confirmation_summary(kwargs),
+            target=self.confirmation_target(kwargs),
+            important_args=f"task={task!r}",
+            risk_level="HIGH",
+        )
+        if not decision.approved:
+            logger.info("run_claude_cli denied (%s): %s", decision.reason, task[:80])
+            return ToolResult(
+                False,
+                f"Claude CLI task was not approved ({decision.reason}) — no changes were made.",
+                self.name,
+                error=f"confirmation_{decision.reason}",
             )
-            if result.returncode == 0:
-                output = (result.stdout or "").strip()
-                if not output:
-                    output = "Claude CLI completed the task with no text output."
-                return ToolResult(True, output[:2000], self.name, data={"full_output": result.stdout})
-            err = (result.stderr or result.stdout or "").strip()[:500]
-            return ToolResult(False, f"Claude CLI exited with an error: {err}", self.name, error=err)
-        except subprocess.TimeoutExpired:
-            return ToolResult(False, "Claude CLI task timed out after 3 minutes.", self.name, error="timeout")
-        except FileNotFoundError:
-            return ToolResult(False, "Claude CLI ('claude' command) was not found on this system.", self.name, error="not_found")
-        except Exception as e:
-            return ToolResult(False, f"Claude CLI error: {str(e)}", self.name, error=str(e))
+
+        if not self._run_lock.acquire(blocking=False):
+            logger.warning("run_claude_cli rejected: another job already running")
+            return ToolResult(
+                False,
+                "Another Claude CLI task is already running against this project. "
+                "Please wait for it to finish before starting another.",
+                self.name,
+                error="already_running",
+            )
+
+        try:
+            # `claude` is an npm-installed shim — on Windows that's a
+            # claude.cmd BATCH FILE, not a native .exe, and CreateProcess
+            # (what subprocess uses with shell=False) cannot launch a .cmd
+            # directly; only cmd.exe can. The previous code used
+            # shell=True, which works, but wraps the ENTIRE list2cmdline-
+            # joined command line in one shared pair of quotes
+            # (`cmd /c "claude -p "task" ..."`) — cmd.exe's special-cased
+            # handling of that single-quoted-blob form re-scans the whole
+            # thing for &, |, %VAR% etc. even across what were meant to be
+            # separate, individually-quoted arguments, which is the actual
+            # injection surface. Resolving the real .cmd path once via
+            # shutil.which() and invoking it as `cmd /c <path> <args...>`
+            # with shell=False keeps each argument as its own
+            # list2cmdline-quoted token instead of one merged string,
+            # which is meaningfully safer (cmd.exe does not treat &/| as
+            # separators INSIDE an individually quoted token) — though `%`
+            # variable expansion and `^` escaping inside a free-text task
+            # string are still cmd.exe behaviors this doesn't fully
+            # neutralize. The mandatory confirmation above, which shows the
+            # literal task text to a human before this ever runs, is the
+            # primary defense; this is defense-in-depth on top of it, not
+            # a claim that shell metacharacters are impossible here.
+            claude_path = shutil.which("claude")
+            if claude_path and claude_path.lower().endswith((".cmd", ".bat")):
+                cmd = [
+                    "cmd", "/c", claude_path, "-p", task,
+                    "--add-dir", self.PROJECT_DIR,
+                    "--permission-mode", "acceptEdits",
+                    "--permission-prompts", "none",
+                    "--max-budget-usd", "1.00",
+                    "--output-format", "text",
+                ]
+            else:
+                cmd = [
+                    claude_path or "claude", "-p", task,
+                    "--add-dir", self.PROJECT_DIR,
+                    "--permission-mode", "acceptEdits",
+                    "--permission-prompts", "none",
+                    "--max-budget-usd", "1.00",
+                    "--output-format", "text",
+                ]
+            try:
+                result = subprocess.run(
+                    cmd, cwd=self.PROJECT_DIR, capture_output=True, text=True,
+                    timeout=180, encoding="utf-8", errors="replace", shell=False,
+                )
+                if result.returncode == 0:
+                    output = (result.stdout or "").strip()
+                    if not output:
+                        output = "Claude CLI completed the task with no text output."
+                    logger.info("run_claude_cli completed: %s", task[:80])
+                    return ToolResult(True, output[:2000], self.name, data={"full_output": result.stdout})
+                err = (result.stderr or result.stdout or "").strip()[:500]
+                logger.error("run_claude_cli exited non-zero: %s", err[:200])
+                return ToolResult(False, f"Claude CLI exited with an error: {err}", self.name, error=err)
+            except subprocess.TimeoutExpired:
+                logger.error("run_claude_cli timed out: %s", task[:80])
+                return ToolResult(False, "Claude CLI task timed out after 3 minutes.", self.name, error="timeout")
+            except FileNotFoundError:
+                logger.error("run_claude_cli: claude executable not found")
+                return ToolResult(False, "Claude CLI ('claude' command) was not found on this system.", self.name, error="not_found")
+            except Exception as e:
+                logger.exception("run_claude_cli unexpected error")
+                return ToolResult(False, f"Claude CLI error: {str(e)}", self.name, error=str(e))
+        finally:
+            self._run_lock.release()
 
 
 import ctypes
@@ -774,9 +979,37 @@ def _send_key(vk: int) -> None:
     _user32.keybd_event(vk, 0, 2, 0)
 
 
+# Exact hostnames this app will ever fetch on the user's behalf without
+# explicit confirmation. A substring check like `"youtube.com..." in url`
+# (the previous implementation) matches lookalikes such as
+# "youtube.com.attacker.com" or "attacker.com/?x=youtube.com/results?..." —
+# parsing the URL and comparing the actual hostname closes that.
+_YOUTUBE_ALLOWED_HOSTS = frozenset({"www.youtube.com", "youtube.com", "m.youtube.com"})
+
+
+def _is_safe_youtube_search_url(url: str) -> bool:
+    """True only if `url` is genuinely an http(s) request to a YouTube host
+    with a /results search path — not merely a string that contains that
+    substring somewhere."""
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception:
+        return False
+    return (
+        parsed.scheme in ("http", "https")
+        and parsed.hostname is not None
+        and parsed.hostname.lower() in _YOUTUBE_ALLOWED_HOSTS
+        and parsed.path.startswith("/results")
+        and "search_query=" in (parsed.query or "")
+    )
+
+
 def _resolve_youtube_direct_url(url_or_query: str) -> str:
-    """If the URL is a YouTube search results URL, resolves it to the first playable watch?v= URL."""
-    if "results?search_query=" in url_or_query:
+    """If the URL is a genuine YouTube search-results URL (verified by
+    parsed hostname/scheme/path, not a substring match), resolves it to the
+    first playable watch?v= URL. Anything else is returned unchanged —
+    this function must never fetch an arbitrary caller-supplied URL."""
+    if _is_safe_youtube_search_url(url_or_query):
         try:
             req = urllib.request.Request(
                 url_or_query,
@@ -807,7 +1040,7 @@ class OpenBrowserTool(BaseTool):
 
     @property
     def permission_level(self) -> PermissionLevel:
-        return PermissionLevel.SAFE
+        return PermissionLevel.LOW_RISK
 
     def execute(self, **kwargs) -> ToolResult:
         query = kwargs.get("query", "")
@@ -822,8 +1055,9 @@ class OpenBrowserTool(BaseTool):
             else:
                 target_url = "https://www.google.com"
 
-            # Auto-resolve YouTube search URLs into direct playable videos
-            if "youtube.com/results?search_query=" in target_url:
+            # Auto-resolve YouTube search URLs into direct playable videos —
+            # gated by a real parsed-hostname check, not a substring match.
+            if _is_safe_youtube_search_url(target_url):
                 target_url = _resolve_youtube_direct_url(target_url)
 
             # Check if a browser window is already open
@@ -885,7 +1119,7 @@ class ControlBrowserTabsTool(BaseTool):
 
     @property
     def permission_level(self) -> PermissionLevel:
-        return PermissionLevel.SAFE
+        return PermissionLevel.LOW_RISK
 
     def execute(self, **kwargs) -> ToolResult:
         action = kwargs.get("action", "next").lower().strip()
@@ -957,7 +1191,7 @@ class GetSystemStatusTool(BaseTool):
 
     @property
     def permission_level(self) -> PermissionLevel:
-        return PermissionLevel.SAFE
+        return PermissionLevel.READ_ONLY
 
     def execute(self, **kwargs) -> ToolResult:
         try:
@@ -998,7 +1232,7 @@ class GetObservedIssuesTool(BaseTool):
 
     @property
     def permission_level(self) -> PermissionLevel:
-        return PermissionLevel.SAFE
+        return PermissionLevel.READ_ONLY
 
     def execute(self, **kwargs) -> ToolResult:
         try:
@@ -1063,7 +1297,7 @@ class SearchFilesTool(BaseTool):
 
     @property
     def permission_level(self) -> PermissionLevel:
-        return PermissionLevel.SAFE
+        return PermissionLevel.READ_ONLY
 
     def execute(self, **kwargs) -> ToolResult:
         query = str(kwargs.get("query", "")).lower()
@@ -1093,7 +1327,18 @@ class SearchFilesTool(BaseTool):
 
 
 class AnalyzeScreenTool(BaseTool):
-    """Deep visual and application analysis of what is currently on the screen."""
+    """
+    Deep visual and application analysis of what is currently on the screen.
+
+    Privacy-sensitive: when a cloud vision provider (Gemini/OpenAI) actually
+    answers the question, a screenshot of the user's live screen is uploaded
+    to that provider. This tool asks for explicit, persisted consent before
+    the FIRST such upload ever happens (see app/config.py's
+    SCREEN_ANALYSIS_CLOUD_CONSENT, revocable from Settings) — a denial does
+    not block screen analysis entirely, it just keeps everything local (no
+    screenshot pixels leave the machine) and answers from window-title
+    heuristics instead.
+    """
 
     @property
     def name(self) -> str:
@@ -1101,17 +1346,58 @@ class AnalyzeScreenTool(BaseTool):
 
     @property
     def description(self) -> str:
-        return "Analyzes what is currently showing on the screen, active window, and answers user questions."
+        return (
+            "Analyzes what is currently showing on the screen, active window, and answers user "
+            "questions. May upload a screenshot to a cloud vision provider — requires one-time "
+            "user consent, see Settings > Privacy."
+        )
 
     @property
     def permission_level(self) -> PermissionLevel:
-        return PermissionLevel.SAFE
+        return PermissionLevel.HIGH_RISK
+
+    @property
+    def self_confirms(self) -> bool:
+        return True
+
+    @property
+    def default_timeout_seconds(self) -> float:
+        # Confirmation wait (up to 30s, only on the first-ever call) plus
+        # the cloud vision call chain's own worst-case (~30s: Gemini +
+        # retry + OpenAI fallback, each with a 10s timeout).
+        return 65.0
 
     def execute(self, **kwargs) -> ToolResult:
         query = kwargs.get("query", "")
         try:
+            from app.config import config
             from core.system.screen_analyzer import screen_analyzer
-            analysis = screen_analyzer.analyze_screen(query)
+
+            consent = getattr(config, "SCREEN_ANALYSIS_CLOUD_CONSENT", None)
+            if consent is None:
+                decision = confirmation_service.request(
+                    tool_name=self.name,
+                    action_description=(
+                        "Screen analysis sends a screenshot of your screen to a cloud AI "
+                        "provider (Google Gemini / OpenAI) so JARVIS can answer questions "
+                        "about what's on screen.\n\n"
+                        "Your screen may contain private information such as passwords, "
+                        "messages, or financial details.\n\n"
+                        "Allow cloud screen analysis? You can change this later in "
+                        "Settings > Privacy."
+                    ),
+                    target="Cloud vision API (Gemini/OpenAI)",
+                    risk_level="HIGH",
+                )
+                consent = bool(decision.approved)
+                try:
+                    config.SCREEN_ANALYSIS_CLOUD_CONSENT = consent
+                    config.save_to_json()
+                except Exception:
+                    logger.exception("Failed to persist screen-analysis consent decision")
+                logger.info("Screen analysis cloud consent decided: %s (%s)", consent, decision.reason)
+
+            analysis = screen_analyzer.analyze_screen(query, allow_cloud=consent)
             return ToolResult(
                 True,
                 analysis["answer"],
@@ -1119,6 +1405,7 @@ class AnalyzeScreenTool(BaseTool):
                 data=analysis,
             )
         except Exception as e:
+            logger.exception("Screen analysis error")
             return ToolResult(False, f"Screen analysis error: {str(e)}", self.name, error=str(e))
 
 
@@ -1133,9 +1420,24 @@ class ControlWindowTool(BaseTool):
     def description(self) -> str:
         return "Controls active or named windows (minimize, maximize, restore, close)."
 
+    # "close" can lose unsaved work, so it needs a real human decision;
+    # minimize/maximize/restore are trivially reversible and don't.
+    _CLOSE_ACTIONS = frozenset({"close", "बंद", "क्लोज़"})
+
     @property
     def permission_level(self) -> PermissionLevel:
-        return PermissionLevel.SAFE
+        return PermissionLevel.CONFIRMATION_REQUIRED
+
+    def permission_level_for(self, args) -> PermissionLevel:
+        action = str(args.get("action", "minimize")).lower().strip()
+        if action in self._CLOSE_ACTIONS:
+            return PermissionLevel.CONFIRMATION_REQUIRED
+        return PermissionLevel.LOW_RISK
+
+    def confirmation_summary(self, args) -> str:
+        action = str(args.get("action", "")).strip()
+        app = str(args.get("app", "")).strip()
+        return f"Close window: {app}" if app else f"Close the currently focused window ({action})"
 
     def execute(self, **kwargs) -> ToolResult:
         import ctypes
@@ -1199,7 +1501,7 @@ class VolumeControlTool(BaseTool):
 
     @property
     def permission_level(self) -> PermissionLevel:
-        return PermissionLevel.SAFE
+        return PermissionLevel.LOW_RISK
 
     def execute(self, **kwargs) -> ToolResult:
         import ctypes
@@ -1245,7 +1547,7 @@ class MediaControlTool(BaseTool):
 
     @property
     def permission_level(self) -> PermissionLevel:
-        return PermissionLevel.SAFE
+        return PermissionLevel.LOW_RISK
 
     def execute(self, **kwargs) -> ToolResult:
         import ctypes
@@ -1293,7 +1595,10 @@ class LockScreenTool(BaseTool):
 
     @property
     def permission_level(self) -> PermissionLevel:
-        return PermissionLevel.SAFE
+        return PermissionLevel.CONFIRMATION_REQUIRED
+
+    def confirmation_summary(self, args) -> str:
+        return "Lock the Windows workstation now"
 
     def execute(self, **kwargs) -> ToolResult:
         import ctypes

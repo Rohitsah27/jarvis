@@ -109,7 +109,12 @@ def route(raw_transcript: str, pipeline_t0: Optional[float] = None) -> RoutingDe
             confidence = max(confidence, 0.85)
         intent = fast.tool_calls[0].tool_name if fast.tool_calls else "conversation"
 
-        if confidence < LOW_CONFIDENCE_THRESHOLD:
+        # <= (not <): a fuzzily-corrected one-word command scores EXACTLY
+        # LOW_CONFIDENCE_THRESHOLD (0.9 - 0.2 fuzzy - 0.25 single-word =
+        # 0.45) via _score_fast_path — that's precisely the scenario most
+        # likely to be a misrecognition, so the boundary must fall on the
+        # "ask for clarification" side, not "confident enough to act".
+        if confidence <= LOW_CONFIDENCE_THRESHOLD:
             lang = jarvis_brain.detect_language(corrected)
             user = getattr(jarvis_brain, "_user_name", "Sir").split()[0]
             question = _clarification_question(lang, user)

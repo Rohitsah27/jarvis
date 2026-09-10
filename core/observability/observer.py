@@ -15,13 +15,18 @@ action on its own. See core/observability/auto_fix.py for the explicit,
 user-confirmed path that can request a code change.
 """
 import json
+import logging
+import os
+import threading
 import time
 import traceback
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import List, Optional
 
 from PySide6.QtCore import QObject, Signal
+
+logger = logging.getLogger("jarvis.observer")
 
 _LOG_DIR = Path(__file__).resolve().parent.parent.parent / "logs"
 _ISSUES_FILE = _LOG_DIR / "observed_issues.jsonl"
@@ -29,6 +34,13 @@ _ISSUES_FILE = _LOG_DIR / "observed_issues.jsonl"
 # Caps the file at a few hundred KB max — old issues are still useful
 # history, but this is a debugging aid, not an audit log that needs to
 # grow forever, and disk space on this machine is not to be spent lightly.
+#
+# NOTE: this cap used to only apply to what's kept in memory / reloaded at
+# startup — record_issue() opened the file in APPEND mode on every call, so
+# the file itself grew forever regardless of this constant. record_issue()
+# now rewrites the file to exactly the capped in-memory list on every call
+# (atomically — see _save_locked), so the on-disk file is genuinely bounded
+# too, not just what gets read back on the next launch.
 _MAX_ISSUES_KEPT = 500
 
 
@@ -63,6 +75,13 @@ class ObserverService(QObject):
         super().__init__()
         self._issues: List[ObservedIssue] = []
         self._next_id = 1
+        # Guards _next_id and _issues — record_issue()/record_exception()
+        # can be called from any thread (tool workers, the global
+        # excepthook in main.py, AutoFixWorker), and the old unguarded
+        # `self._next_id += 1` / list-append-then-reslice pattern could
+        # produce duplicate ids or drop a concurrently-recorded issue under
+        # real concurrency.
+        self._lock = threading.Lock()
         self._load_existing()
 
     @classmethod
@@ -88,6 +107,23 @@ class ObserverService(QObject):
         except Exception as e:
             print(f"[ObserverService] Could not load prior issues: {e}")
 
+    def _save_locked(self):
+        """Caller must already hold self._lock. Rewrites the file to
+        exactly the current (already-capped) in-memory issue list —
+        atomically, so a crash mid-write can't corrupt it."""
+        try:
+            _LOG_DIR.mkdir(parents=True, exist_ok=True)
+            lines = [json.dumps(i.to_dict(), ensure_ascii=False) for i in self._issues]
+            tmp_path = _ISSUES_FILE.with_suffix(".jsonl.tmp")
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines) + ("\n" if lines else ""))
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, _ISSUES_FILE)
+        except Exception as e:
+            logger.error("Failed to persist observed issues: %s", e)
+            print(f"[ObserverService] Failed to persist issue (still tracked in-memory): {e}")
+
     def record_issue(
         self, category: str, summary: str, details: str = "",
         severity: str = "error", source: str = "",
@@ -98,22 +134,27 @@ class ObserverService(QObject):
         an exception handler). Returns the recorded issue so callers can
         reference its id (e.g. to later request a fix for it specifically).
         """
-        issue = ObservedIssue(
-            id=str(self._next_id), timestamp=time.time(), category=category,
-            summary=summary[:300], details=details[:8000], severity=severity, source=source,
-        )
-        self._next_id += 1
         try:
-            self._issues.append(issue)
-            self._issues = self._issues[-_MAX_ISSUES_KEPT:]
-            _LOG_DIR.mkdir(parents=True, exist_ok=True)
-            with open(_ISSUES_FILE, "a", encoding="utf-8") as f:
-                f.write(json.dumps(issue.to_dict(), ensure_ascii=False) + "\n")
+            with self._lock:
+                issue = ObservedIssue(
+                    id=str(self._next_id), timestamp=time.time(), category=category,
+                    summary=summary[:300], details=details[:8000], severity=severity, source=source,
+                )
+                self._next_id += 1
+                self._issues.append(issue)
+                self._issues = self._issues[-_MAX_ISSUES_KEPT:]
+                self._save_locked()
             print(f"[ObserverService] Observed [{severity}] {category}: {summary[:120]}")
             self.issue_observed.emit(issue)
-        except Exception as e:
-            print(f"[ObserverService] Failed to persist issue (still tracked in-memory): {e}")
-        return issue
+            return issue
+        except Exception:
+            # Genuinely unexpected (the lock/list code above shouldn't
+            # raise) — still never let this take down the caller.
+            logger.exception("record_issue failed unexpectedly")
+            return ObservedIssue(
+                id="0", timestamp=time.time(), category=category,
+                summary=summary[:300], details=details[:8000], severity=severity, source=source,
+            )
 
     def record_exception(self, exc: BaseException, category: str = "unhandled_exception", source: str = "") -> ObservedIssue:
         """Convenience wrapper: formats a caught exception's traceback for record_issue()."""
@@ -122,16 +163,19 @@ class ObserverService(QObject):
         return self.record_issue(category, summary, details, severity="error", source=source)
 
     def get_recent_issues(self, n: int = 10) -> List[ObservedIssue]:
-        return list(reversed(self._issues[-n:]))
+        with self._lock:
+            return list(reversed(self._issues[-n:]))
 
     def get_issue_by_id(self, issue_id: str) -> Optional[ObservedIssue]:
-        for issue in self._issues:
-            if issue.id == issue_id:
-                return issue
+        with self._lock:
+            for issue in self._issues:
+                if issue.id == issue_id:
+                    return issue
         return None
 
     def get_last_issue(self) -> Optional[ObservedIssue]:
-        return self._issues[-1] if self._issues else None
+        with self._lock:
+            return self._issues[-1] if self._issues else None
 
     def explain_last_issue(self) -> str:
         """

@@ -29,7 +29,14 @@ _FILLERS = {
 # so e.g. "local llm" matches before a bare "llm" inside it would.
 _VOCAB_FIXES = {
     "JARVIS": ["jervis", "charvis", "jarvish", "jarvez", "jarvist", "jaarvis", "jaarvish"],
-    "Claude": ["cloud", "clod", "clawd", "clode", "klod", "klaud"],
+    # "cloud" was previously listed here as a mis-hearing of "Claude" — but
+    # "cloud" is a common, unrelated English word ("cloud storage", "it's
+    # cloudy", "check my cloud status"), and this substitution ran
+    # unconditionally on every transcript with only a \b...\b word-boundary
+    # guard, silently rewriting completely unrelated sentences. Removed;
+    # the remaining variants below are phonetically close to "Claude" but
+    # not real English words on their own, so they don't have this problem.
+    "Claude": ["clod", "clawd", "clode", "klod", "klaud"],
     "OpenClaw": ["open claw", "open clause", "open clock", "opencloud", "open cloud", "open klaw"],
     "CLI": ["see el eye", "seeli", "see-el-eye", "c l i"],
     "LLM": ["el el em", "ellum", "l l m", "elelem"],

@@ -3,7 +3,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QGridLayout, QLabel, QPushBu
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from ui.styles.theme import theme
-from core.tools.tool_manager import tool_manager
+from ui.components.tool_runner import run_tool_async
 
 
 class AppsPage(QWidget):
@@ -58,7 +58,7 @@ class AppsPage(QWidget):
                 f"border-radius: 6px; color: {theme.CYAN_ACCENT}; font-size: 9pt; }} "
                 f"QPushButton:hover {{ background: {theme.CYAN_ACCENT}; color: #000000; }}"
             )
-            launch_btn.clicked.connect(lambda _, cmd=app_cmd: tool_manager.execute_tool("open_application", app=cmd))
+            launch_btn.clicked.connect(lambda _, cmd=app_cmd, btn=launch_btn: self._launch(cmd, btn))
 
             c_layout.addWidget(lbl_icon)
             c_layout.addWidget(lbl_name)
@@ -67,4 +67,36 @@ class AppsPage(QWidget):
             grid.addWidget(card, i // 3, i % 3)
 
         layout.addLayout(grid)
+
+        self.lbl_status = QLabel("")
+        self.lbl_status.setWordWrap(True)
+        self.lbl_status.setStyleSheet(f"color: {theme.TEXT_SECONDARY}; font-size: 8.5pt;")
+        layout.addWidget(self.lbl_status)
+
         layout.addStretch(1)
+
+    def _launch(self, app_cmd: str, btn: QPushButton):
+        # open_application is CONFIRMATION_REQUIRED — this now correctly
+        # shows a real approval dialog (previously the click just silently
+        # launched with no gate). Running off the GUI thread means the
+        # window stays responsive while that dialog is up and while the
+        # tool polls for the launched window, instead of the whole app
+        # freezing for however long that takes with zero indication
+        # anything was happening — and the actual outcome is now shown
+        # instead of being discarded.
+        btn.setEnabled(False)
+        btn.setText("Launching...")
+        self.lbl_status.setText(f"Requesting launch: {app_cmd}...")
+        self.lbl_status.setStyleSheet(f"color: {theme.TEXT_SECONDARY}; font-size: 8.5pt;")
+
+        def _on_result(result):
+            btn.setEnabled(True)
+            btn.setText("Launch Application")
+            if result.success:
+                self.lbl_status.setText(f"✓ {result.output}")
+                self.lbl_status.setStyleSheet(f"color: {theme.STATUS_ONLINE}; font-size: 8.5pt;")
+            else:
+                self.lbl_status.setText(f"✗ {result.output}")
+                self.lbl_status.setStyleSheet(f"color: {theme.STATUS_ERROR}; font-size: 8.5pt;")
+
+        run_tool_async(self, "open_application", on_result=_on_result, app=app_cmd)

@@ -47,17 +47,35 @@ def main():
     """Initializes and runs the JARVIS desktop interface."""
     app = JarvisApplication(sys.argv)
 
-    # 1. Display holographic cybernetic splash screen immediately
+    # 1. Display holographic cybernetic splash screen immediately (< 50ms)
     splash = JarvisSplashScreen()
     splash.show()
-    splash.set_progress(8, "INITIALIZING CORE SUBSYSTEMS...")
+    splash.set_progress(10, "INITIALIZING CYBERNETIC DESKTOP OS...")
     app.processEvents()
 
-    # 2. Construct main window with real-time progress reporting
+    # 2. Pause microphone during boot to avoid false speech triggers while loading
+    try:
+        from core.voice.voice_engine import voice_engine
+        voice_engine.pause_listening()
+    except Exception:
+        pass
+
+    # 3. Construct main window with UI pages and 3D HUD WebEngine
     window = JarvisMainWindow(splash=splash)
 
-    # 3. Smooth transition from splash screen to main window
-    splash.finish(window)
+    # 4. Asynchronously preload Neural TTS and Faster-Whisper while splash screen stays active
+    def on_preload_complete():
+        from PySide6.QtCore import QTimer
+        def reveal():
+            splash.finish(window)
+            try:
+                from core.voice.voice_engine import voice_engine
+                voice_engine.resume_listening()
+            except Exception:
+                pass
+        QTimer.singleShot(350, reveal)
+
+    splash.start_preload(window, on_preload_complete)
 
     sys.exit(app.exec())
 

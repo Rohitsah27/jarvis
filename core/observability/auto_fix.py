@@ -62,10 +62,17 @@ class AutoFixWorker(QThread):
         self.task = task
 
     def run(self):
-        task_queue.set_status(self.task.id, "running")
-        success, report = AutoFixManager.execute_fix(self.task)
-        task_queue.set_status(self.task.id, "completed" if success else "failed", report)
-        self.finished_fix.emit(self.task, success, report)
+        auto_fix_manager.mark_running(self.task.id)
+        try:
+            task_queue.set_status(self.task.id, "running")
+            success, report = AutoFixManager.execute_fix(self.task)
+            task_queue.set_status(self.task.id, "completed" if success else "failed", report)
+            self.finished_fix.emit(self.task, success, report)
+        finally:
+            # Always release, even if execute_fix() raised something it
+            # didn't catch — a stuck "running" flag would permanently
+            # block every future auto-fix proposal.
+            auto_fix_manager.mark_finished(self.task.id)
 
 
 class AutoFixManager:
@@ -76,14 +83,43 @@ class AutoFixManager:
     def __init__(self):
         self._pending_issue_id: Optional[str] = None
         self._pending_task_id: Optional[str] = None
+        # Tracks a fix that has been approved and is ACTUALLY EXECUTING
+        # (an AutoFixWorker is running), as distinct from _pending_task_id
+        # (awaiting the user's yes/no). The old code cleared the pending
+        # state the instant a fix was approved, before the worker had even
+        # started — which let a second issue be proposed and approved
+        # while the first Claude CLI run was still in flight, racing two
+        # source-modifying jobs against the same project directory. main.py
+        # calls mark_running()/mark_finished() around the worker's actual
+        # lifetime (see ui/main_window.py's _handle_pending_fix_reply /
+        # _on_fix_finished) so propose_fix() can refuse a new proposal for
+        # as long as one is genuinely still running.
+        self._running_task_id: Optional[str] = None
 
     def is_awaiting_confirmation(self) -> bool:
         return self._pending_issue_id is not None
+
+    def is_fix_running(self) -> bool:
+        return self._running_task_id is not None
+
+    def mark_running(self, task_id: str) -> None:
+        self._running_task_id = task_id
+
+    def mark_finished(self, task_id: str) -> None:
+        if self._running_task_id == task_id:
+            self._running_task_id = None
 
     def propose_fix(self, issue: ObservedIssue) -> str:
         """Call this to ask the user about the most recently observed
         issue. Returns the exact question to speak/display — does NOT
         touch any code yet."""
+        if self.is_fix_running():
+            return (
+                "JARVIS is already running a Claude CLI fix for a previous issue — "
+                "please wait for it to finish before starting another."
+            )
+        if self.is_awaiting_confirmation():
+            return "Should I ask Claude to fix this?"  # already pending — repeat the question, don't create a duplicate task
         description = self.build_task_description(issue)
         task = task_queue.create_task(issue_id=issue.id, description=description)
         self._pending_issue_id = issue.id
@@ -153,15 +189,23 @@ class AutoFixManager:
     def execute_fix(task: FixTask) -> Tuple[bool, str]:
         """
         BLOCKING — run this from AutoFixWorker, never on the GUI thread.
-        Invokes the existing RunClaudeCLITool directly (bypassing the LLM's
-        own tool-selection — this call site is the only thing deciding to
-        run it, per the module's safety design), then re-runs this
-        project's regression suite as the actual verification step.
+
+        Goes through tool_manager.execute_tool("run_claude_cli", ...) —
+        NOT a direct RunClaudeCLITool().execute() call — so this path uses
+        the exact same gate as every other caller of that tool. The user
+        will see a real confirmation dialog showing the literal task text
+        immediately before it runs, ON TOP OF this flow's own earlier
+        voice-based "Should I ask Claude to fix this?" question: the
+        combination is deliberate, not redundant — this is the single most
+        sensitive capability in the app (it can modify JARVIS's own source
+        code), so it gets both an conversational confirmation AND a final,
+        explicit, code-enforced one that cannot be skipped by anything
+        (see RunClaudeCLITool.execute()'s hard-wall in system_tools.py).
         """
-        from core.tools.system_tools import RunClaudeCLITool
+        from core.tools.tool_manager import tool_manager
 
         start_t = time.perf_counter()
-        cli_result = RunClaudeCLITool().execute(task=task.description)
+        cli_result = tool_manager.execute_tool("run_claude_cli", task=task.description)
         claude_elapsed = time.perf_counter() - start_t
 
         if not cli_result.success:

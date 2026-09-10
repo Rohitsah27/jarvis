@@ -105,12 +105,9 @@ class OpenSourceLLMProvider(BaseAIProvider):
                 raw_content = data.get("message", {}).get("content", "")
                 latency = (time.perf_counter() - start_t) * 1000.0
 
+                # The real model's own tool-call decision is final — never
+                # replaced with the offline regex brain's own guess.
                 clean_text, tool_calls = self._parse_action_tag(raw_content)
-                if not tool_calls:
-                    from core.ai.brain import jarvis_brain
-                    sim = jarvis_brain.think(prompt)
-                    if sim.tool_calls:
-                        tool_calls = sim.tool_calls
 
                 return AIResponse(
                     content=clean_text,
@@ -167,12 +164,9 @@ class OpenSourceLLMProvider(BaseAIProvider):
                 raw_content = data["choices"][0]["message"]["content"]
                 latency = (time.perf_counter() - start_t) * 1000.0
 
+                # The real model's own tool-call decision is final — never
+                # replaced with the offline regex brain's own guess.
                 clean_text, tool_calls = self._parse_action_tag(raw_content)
-                if not tool_calls:
-                    from core.ai.brain import jarvis_brain
-                    sim = jarvis_brain.think(prompt)
-                    if sim.tool_calls:
-                        tool_calls = sim.tool_calls
 
                 return AIResponse(
                     content=clean_text,
@@ -223,16 +217,13 @@ class OpenSourceLLMProvider(BaseAIProvider):
                 raw_content = data["candidates"][0]["content"]["parts"][0]["text"]
                 latency = (time.perf_counter() - start_t) * 1000.0
 
+                # The real model's own tool-call decision is final — never
+                # replaced with the offline regex brain's own guess.
                 clean_text, tool_calls = self._parse_action_tag(raw_content)
-                if not tool_calls:
-                    from core.ai.brain import jarvis_brain
-                    sim = jarvis_brain.think(prompt)
-                    if sim.tool_calls:
-                        tool_calls = sim.tool_calls
 
                 return AIResponse(
                     content=clean_text,
-                    provider_name="Google Gemini (2.0 Flash)",
+                    provider_name="Google Gemini (Flash-Lite)",
                     model_name="gemini-3.5-flash-lite",
                     latency_ms=latency,
                     tool_calls=tool_calls,

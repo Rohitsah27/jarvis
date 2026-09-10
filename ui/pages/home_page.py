@@ -861,3 +861,21 @@ class HomePage(QWidget):
             "QFrame#LiveSpeechCard { background-color: rgba(9, 21, 38, 0.75); border: 1px solid rgba(245, 158, 11, 0.35); border-left: 3px solid #f59e0b; border-radius: 8px; }"
         )
         self.speech_wave.set_active(True)
+
+    def set_mic_unavailable_hint(self):
+        """Mic disconnected, permission revoked, or the listener thread
+        crashed — previously the UI just stayed on 'Listening...' forever
+        with no indication anything was wrong. Clicking the mic button
+        while this is showing retries (voice_engine.toggle_listening()
+        routes to retry_microphone() in this state)."""
+        self.lbl_speech_tag.setText("[ MIC UNAVAILABLE ]")
+        self.lbl_speech_tag.setStyleSheet(
+            "color: #ff4d4d; background: rgba(255, 77, 77, 0.15); "
+            "border: 1px solid rgba(255, 77, 77, 0.4); border-radius: 5px; padding: 4px 10px; letter-spacing: 1.2px;"
+        )
+        self.lbl_live_speech.setText("Microphone unavailable — click the mic button to retry")
+        self.lbl_live_speech.setStyleSheet("color: #ff4d4d; font-size: 9.5pt; background: transparent;")
+        self.live_speech_card.setStyleSheet(
+            "QFrame#LiveSpeechCard { background-color: rgba(9, 21, 38, 0.75); border: 1px solid rgba(255, 77, 77, 0.35); border-left: 3px solid #ff4d4d; border-radius: 8px; }"
+        )
+        self.speech_wave.set_active(False)

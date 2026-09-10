@@ -1,4 +1,14 @@
-"""Modular AI Skills Directory Page."""
+"""Modular AI Skills Directory Page.
+
+Previously claimed "Web Scraping & Synthesis" and "Smart Document Indexer"
+were Enabled (green) when no such capability exists anywhere in the
+codebase — there is no web-scraping/summarization tool and no semantic
+document index (search_files does a plain filename substring match, not
+semantic search). "Install / Enable" buttons for the not-yet-built skills
+also had no click handler at all. Statuses now reflect what's actually
+implemented; unimplemented items are clearly marked and their buttons
+disabled rather than pretending a click would do something.
+"""
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QGridLayout, QLabel, QPushButton, QFrame
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
@@ -25,13 +35,14 @@ class SkillsPage(QWidget):
         grid = QGridLayout()
         grid.setSpacing(12)
 
+        # (name, description, actually implemented today)
         skills = [
-            ("🧠 Vision & Screen Analysis", "Analyzes screenshots and monitors using multimodal models.", True),
-            ("🎙️ Whisper Speech Engine", "High-accuracy local audio transcription and phoneme parsing.", True),
-            ("⌨️ Keyboard & Mouse Macro", "Automated input simulation for complex repetitive actions.", False),
-            ("🌐 Web Scraping & Synthesis", "Extracts structured data and summaries from web pages.", True),
-            ("📁 Smart Document Indexer", "Semantic search across PDF, DOCX, and text repositories.", True),
-            ("🔐 Credential Vault Manager", "Secure local token and API key storage with Windows DPAPI.", False),
+            ("🧠 Vision & Screen Analysis", "Analyzes screenshots and monitors using multimodal models (analyze_screen). Requires one-time cloud-upload consent — see Settings > Privacy.", True),
+            ("🎙️ Whisper Speech Engine", "High-accuracy local audio transcription via Faster-Whisper.", True),
+            ("⌨️ Keyboard & Mouse Macro Recorder", "Record and replay a sequence of clicks/keystrokes as one saved macro.", False),
+            ("🌐 Web Scraping & Synthesis", "Extracts structured data and summaries from web pages.", False),
+            ("📁 Smart Document Indexer", "Semantic search across PDF, DOCX, and text repositories.", False),
+            ("🔐 Credential Vault Manager", "Encrypted local token/API key storage with Windows DPAPI (currently plaintext in config.json).", False),
         ]
 
         for i, (name, desc, enabled) in enumerate(skills):
@@ -51,12 +62,19 @@ class SkillsPage(QWidget):
             d_lbl.setWordWrap(True)
             d_lbl.setStyleSheet(f"color: {theme.TEXT_SECONDARY};")
 
-            status_btn = QPushButton("Enabled" if enabled else "Install / Enable")
-            status_btn.setStyleSheet(
-                f"background: {'rgba(0, 255, 157, 0.15)' if enabled else 'rgba(0, 210, 255, 0.1)'}; "
-                f"border: 1px solid {'#00ff9d' if enabled else theme.CYAN_ACCENT}; "
-                f"color: {'#00ff9d' if enabled else theme.CYAN_ACCENT}; border-radius: 4px; padding: 4px;"
-            )
+            status_btn = QPushButton("Enabled" if enabled else "Coming Soon")
+            if enabled:
+                status_btn.setStyleSheet(
+                    "background: rgba(0, 255, 157, 0.15); border: 1px solid #00ff9d; "
+                    "color: #00ff9d; border-radius: 4px; padding: 4px;"
+                )
+            else:
+                status_btn.setEnabled(False)
+                status_btn.setToolTip("Not implemented yet")
+                status_btn.setStyleSheet(
+                    "background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); "
+                    "color: #506580; border-radius: 4px; padding: 4px;"
+                )
 
             c_layout.addWidget(t_lbl)
             c_layout.addWidget(d_lbl)

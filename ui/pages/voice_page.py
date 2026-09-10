@@ -257,12 +257,13 @@ class VoicePage(QWidget):
         # was actually dangerous — it stays reachable from the full Settings
         # page for anyone who wants it deliberately.
         self.combo_engine = QComboBox()
+        self.combo_engine.addItem("Microsoft Edge TTS (Cloud Neural - Swara Hindi Default)", "edge")
         self.combo_engine.addItem("Kokoro Neural TTS (Free, Offline)", "kokoro")
         self.combo_engine.addItem("Windows Native SAPI (Offline)", "sapi")
         self.combo_engine.addItem("ElevenLabs Studio API (Cloud)", "elevenlabs")
         self.combo_engine.setStyleSheet(self._dropdown_style())
         for i in range(self.combo_engine.count()):
-            if self.combo_engine.itemData(i) == getattr(config, "TTS_ENGINE", "kokoro"):
+            if self.combo_engine.itemData(i) == getattr(config, "TTS_ENGINE", "edge"):
                 self.combo_engine.setCurrentIndex(i)
                 break
         row_engine.addWidget(lbl_engine)
@@ -275,15 +276,7 @@ class VoicePage(QWidget):
         lbl_en.setStyleSheet("color: #ffffff;")
         lbl_en.setFixedWidth(150)
         self.combo_voice_en = QComboBox()
-        self.combo_voice_en.addItem("bm_george — Deep, Authoritative (Recommended)", "bm_george")
-        self.combo_voice_en.addItem("bm_daniel — Calm, Polished", "bm_daniel")
-        self.combo_voice_en.addItem("bm_fable — Expressive", "bm_fable")
-        self.combo_voice_en.addItem("bm_lewis — Classic British Male", "bm_lewis")
         self.combo_voice_en.setStyleSheet(self._dropdown_style())
-        for i in range(self.combo_voice_en.count()):
-            if self.combo_voice_en.itemData(i) == getattr(config, "KOKORO_ENGLISH_VOICE", "bm_george"):
-                self.combo_voice_en.setCurrentIndex(i)
-                break
         row_en.addWidget(lbl_en)
         row_en.addWidget(self.combo_voice_en, 1)
         layout.addLayout(row_en)
@@ -294,16 +287,13 @@ class VoicePage(QWidget):
         lbl_hi.setStyleSheet("color: #ffffff;")
         lbl_hi.setFixedWidth(150)
         self.combo_voice_hi = QComboBox()
-        self.combo_voice_hi.addItem("hm_omega — Deep Resonant (Recommended)", "hm_omega")
-        self.combo_voice_hi.addItem("hm_psi — Calm", "hm_psi")
         self.combo_voice_hi.setStyleSheet(self._dropdown_style())
-        for i in range(self.combo_voice_hi.count()):
-            if self.combo_voice_hi.itemData(i) == getattr(config, "KOKORO_HINDI_VOICE", "hm_omega"):
-                self.combo_voice_hi.setCurrentIndex(i)
-                break
         row_hi.addWidget(lbl_hi)
         row_hi.addWidget(self.combo_voice_hi, 1)
         layout.addLayout(row_hi)
+
+        self.combo_engine.currentIndexChanged.connect(self._on_engine_changed)
+        self._refresh_voice_options()
 
         # --- Speech Speed --- (config.KOKORO_SPEED is already read live by
         # kokoro_engine.synthesize() on every call — it just had no UI control
@@ -373,14 +363,75 @@ class VoicePage(QWidget):
 
         return card
 
+    def _on_engine_changed(self):
+        self._refresh_voice_options()
+
+    def _refresh_voice_options(self):
+        engine = self.combo_engine.currentData() or getattr(config, "TTS_ENGINE", "edge")
+        self.combo_voice_en.blockSignals(True)
+        self.combo_voice_hi.blockSignals(True)
+        self.combo_voice_en.clear()
+        self.combo_voice_hi.clear()
+
+        if engine in ("edge", "edge_tts"):
+            self.combo_voice_hi.addItem("hi-IN-SwaraNeural — Swara Female (Default & Recommended)", "hi-IN-SwaraNeural")
+            self.combo_voice_hi.addItem("hi-IN-MadhurNeural — Madhur Male (Natural Hindi)", "hi-IN-MadhurNeural")
+
+            self.combo_voice_en.addItem("en-IN-NeerjaNeural — Neerja Female (Indian English)", "en-IN-NeerjaNeural")
+            self.combo_voice_en.addItem("en-IN-PrabhatNeural — Prabhat Male (Indian English)", "en-IN-PrabhatNeural")
+            self.combo_voice_en.addItem("en-US-JennyNeural — Jenny Female (US English)", "en-US-JennyNeural")
+            self.combo_voice_en.addItem("en-US-GuyNeural — Guy Male (US English)", "en-US-GuyNeural")
+            self.combo_voice_en.addItem("en-GB-SoniaNeural — Sonia Female (UK English)", "en-GB-SoniaNeural")
+            self.combo_voice_en.addItem("en-GB-RyanNeural — Ryan Male (UK English)", "en-GB-RyanNeural")
+
+            cur_hi = getattr(config, "EDGE_TTS_HINDI_VOICE", "hi-IN-SwaraNeural")
+            for i in range(self.combo_voice_hi.count()):
+                if self.combo_voice_hi.itemData(i) == cur_hi:
+                    self.combo_voice_hi.setCurrentIndex(i)
+                    break
+
+            cur_en = getattr(config, "EDGE_TTS_ENGLISH_VOICE", "en-IN-NeerjaNeural")
+            for i in range(self.combo_voice_en.count()):
+                if self.combo_voice_en.itemData(i) == cur_en:
+                    self.combo_voice_en.setCurrentIndex(i)
+                    break
+        else:
+            self.combo_voice_hi.addItem("hm_omega — Deep Resonant (Recommended)", "hm_omega")
+            self.combo_voice_hi.addItem("hm_psi — Calm", "hm_psi")
+
+            self.combo_voice_en.addItem("bm_george — Deep, Authoritative (Recommended)", "bm_george")
+            self.combo_voice_en.addItem("bm_daniel — Calm, Polished", "bm_daniel")
+            self.combo_voice_en.addItem("bm_fable — Expressive", "bm_fable")
+            self.combo_voice_en.addItem("bm_lewis — Classic British Male", "bm_lewis")
+
+            cur_hi = getattr(config, "KOKORO_HINDI_VOICE", "hm_omega")
+            for i in range(self.combo_voice_hi.count()):
+                if self.combo_voice_hi.itemData(i) == cur_hi:
+                    self.combo_voice_hi.setCurrentIndex(i)
+                    break
+
+            cur_en = getattr(config, "KOKORO_ENGLISH_VOICE", "bm_george")
+            for i in range(self.combo_voice_en.count()):
+                if self.combo_voice_en.itemData(i) == cur_en:
+                    self.combo_voice_en.setCurrentIndex(i)
+                    break
+
+        self.combo_voice_en.blockSignals(False)
+        self.combo_voice_hi.blockSignals(False)
+
     def _save_voice_customization(self):
         """Applies every control on this card to the live config immediately
-        (engine/voice/speed take effect on JARVIS's very next reply — Kokoro
-        params are read fresh on each synth call) and persists them to
-        config.json so they survive a restart."""
-        config.TTS_ENGINE = self.combo_engine.currentData()
-        config.KOKORO_ENGLISH_VOICE = self.combo_voice_en.currentData()
-        config.KOKORO_HINDI_VOICE = self.combo_voice_hi.currentData()
+        (engine/voice/speed take effect on JARVIS's very next reply) and persists
+        them to config.json so they survive a restart."""
+        engine = self.combo_engine.currentData()
+        config.TTS_ENGINE = engine
+        if engine in ("edge", "edge_tts"):
+            config.EDGE_TTS_VOICE = self.combo_voice_hi.currentData() or "hi-IN-SwaraNeural"
+            config.EDGE_TTS_HINDI_VOICE = self.combo_voice_hi.currentData() or "hi-IN-SwaraNeural"
+            config.EDGE_TTS_ENGLISH_VOICE = self.combo_voice_en.currentData() or "en-IN-NeerjaNeural"
+        else:
+            config.KOKORO_ENGLISH_VOICE = self.combo_voice_en.currentData()
+            config.KOKORO_HINDI_VOICE = self.combo_voice_hi.currentData()
         config.KOKORO_SPEED = self.slider_speed.value() / 100.0
         config.MIC_ENERGY_THRESHOLD = self.slider_mic.value()
         config.save_to_json()
@@ -480,7 +531,7 @@ class VoicePage(QWidget):
         term = self.txt_dict_term.text().strip()
         deva = self.txt_dict_deva.text().strip()
         if not term or not deva:
-            self.lbl_dict_feedback.setStyleSheet(f"color: {theme.RED_ALERT}; font-size: 8.5pt;")
+            self.lbl_dict_feedback.setStyleSheet(f"color: {theme.STATUS_ERROR}; font-size: 8.5pt;")
             self.lbl_dict_feedback.setText("Please enter both the English term and its Devanagari pronunciation.")
             return
 
@@ -498,7 +549,7 @@ class VoicePage(QWidget):
             self.txt_dict_deva.clear()
             voice_engine.speak(f"शब्द {deva} डिक्शनरी में जोड़ दिया गया है।")
         else:
-            self.lbl_dict_feedback.setStyleSheet(f"color: {theme.RED_ALERT}; font-size: 8.5pt;")
+            self.lbl_dict_feedback.setStyleSheet(f"color: {theme.STATUS_ERROR}; font-size: 8.5pt;")
             self.lbl_dict_feedback.setText("Could not add word. Please check inputs.")
 
     def _build_elevenlabs_card(self) -> QFrame:

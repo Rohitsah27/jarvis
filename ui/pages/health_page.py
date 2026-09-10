@@ -251,9 +251,12 @@ class HealthPage(QWidget):
         self.card_stt.set_status(status, f"Engine: {getattr(config, 'STT_ENGINE', '?')}", color)
 
     def _refresh_tts(self):
-        engine_mode = getattr(config, "TTS_ENGINE", "kokoro").lower().strip()
+        engine_mode = getattr(config, "TTS_ENGINE", "edge").lower().strip()
         try:
-            if engine_mode == "xtts":
+            if engine_mode in ("edge", "edge_tts"):
+                from core.voice.edge_tts_engine import edge_tts_engine
+                status = edge_tts_engine.status_summary()
+            elif engine_mode == "xtts":
                 from core.voice.xtts_engine import xtts_engine
                 status = xtts_engine.status_summary()
             else:
